@@ -85,6 +85,26 @@ const getOrderTotal = (id: number): number | null => {
   return orderTotal;
 };
 
-// const getOrdersByStatus = (status: OrderStatus): Order[] => {
+const getOrdersByStatus = (status: OrderStatus): Order[] => {
+  return Orders.filter((order) => order.status === status);
+};
 
-// }
+const cancelOrder = (
+  id: number,
+): { success: true } | { success: false; reason: string } => {
+  const order = Orders.find((order) => order.id === id);
+
+  if (!order) {
+    return { success: false, reason: "Item not found" };
+  }
+
+  if (order.status === "pending" || order.status === "confirmed") {
+    order.status = "cancelled";
+    return { success: true };
+  } else {
+    return {
+      success: false,
+      reason: "Can't cancel at this stage",
+    };
+  }
+};
