@@ -108,3 +108,49 @@ const cancelOrder = (
     };
   }
 };
+
+const getOrderReport = (): {
+  totalOrders: number;
+  byStatus: Record<OrderStatus, number>;
+  revenue: number;
+} => {
+  const completedOrders = Orders.filter(
+    (order) =>
+      order.status === "confirmed" ||
+      order.status === "shipped" ||
+      order.status === "delivered",
+  );
+
+  let totalRevenue = 0;
+  for (const completedOrder of completedOrders) {
+    let subTotals = completedOrder.items.map(
+      (entity) => entity.quantity * entity.unitPrice,
+    );
+    for (const subTotal of subTotals) {
+      totalRevenue += subTotal;
+    }
+  }
+
+  const orderCounts = {
+    pending: Orders.filter((order) => order.status === "pending").length,
+    confirmed: Orders.filter((order) => order.status === "confirmed").length,
+    shipped: Orders.filter((order) => order.status === "shipped").length,
+    delivered: Orders.filter((order) => order.status === "delivered").length,
+    cancelled: Orders.filter((order) => order.status === "cancelled").length,
+  };
+
+  return {
+    totalOrders: Orders.length,
+    byStatus: orderCounts,
+    revenue: totalRevenue,
+  };
+};
+
+export {
+  createOrder,
+  cancelOrder,
+  getOrderReport,
+  getOrdersByStatus,
+  getOrderTotal,
+  updateOrderStatus,
+};
