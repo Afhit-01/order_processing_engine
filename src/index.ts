@@ -12,12 +12,9 @@ import testOrders from "./testOrders.js";
 console.log("\n.......CREATING ORDERS.......");
 
 for (const testOrder of testOrders) {
-  const result = createOrder(
-    testOrder.customerName,
-    testOrder.items,
-  );
+  const result = createOrder(testOrder.customerName, testOrder.items);
 
-  console.dir(result, {depth: null});
+  console.dir(result, { depth: null });
 }
 
 console.log("\n.......UPDATING STATUSES.......");
@@ -56,7 +53,6 @@ console.log("Order 4 total:", getOrderTotal(4));
 
 console.log("Order 999 total:", getOrderTotal(999));
 
-
 console.log("\n......ORDERS BY STATUS......");
 
 console.log("Pending:", getOrdersByStatus("pending"));
@@ -67,7 +63,6 @@ console.log("Cancelled:", getOrdersByStatus("cancelled"));
 
 console.log("\n........CANCELLATION TESTS.......");
 
-
 console.log(cancelOrder(1));
 
 console.log(cancelOrder(4));
@@ -75,7 +70,6 @@ console.log(cancelOrder(4));
 console.log(cancelOrder(3));
 
 console.log(cancelOrder(999));
-
 
 console.log("\n......FINAL ORDER REPORT......");
 
