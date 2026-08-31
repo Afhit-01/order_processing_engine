@@ -3,10 +3,9 @@ import type { OrderItem } from "./types.js";
 type testModel = {
   customerName: string;
   items: OrderItem[];
-}
+};
 
 const testOrders: testModel[] = [
-
   // Customer 1
   {
     customerName: "Fatihu",
