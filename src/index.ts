@@ -7,6 +7,7 @@ import {
   getOrdersByStatus,
   getOrderTotal,
   updateOrderStatus,
+  returnOrder,
 } from "./orderLogic.js";
 import type { OrderStatus } from "./types.js";
 
@@ -84,7 +85,18 @@ app.patch("/orders/:id/status", (req: Request, res: Response) => {
 
 app.patch("/return/:id", (req: Request, res: Response) => {
   const id = Number(req.params.id);
-})
+  const result = returnOrder(id);
+
+  if (!result.success) {
+    return res.status(400).json({
+      error: result.reason,
+    });
+  }
+
+  res.status(200).json({
+    message: result.message
+  });
+});
 
 // Delete
 
