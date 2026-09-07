@@ -1,6 +1,7 @@
-import type { Order, OrderItem, OrderStatus } from "./types.js";
+import type { Order, OrderItem, OrderStatus, ReturnRequest } from "./types.js";
 
 const Orders: Order[] = [];
+const ReturnRequests: ReturnRequest[] = [];
 let nextId = 1;
 
 const validTransitions: Record<OrderStatus, OrderStatus[]> = {
@@ -153,11 +154,11 @@ const getOrderReport = (): {
 };
 
 const returnOrder = (
-  id: number,
+  orderId: number,
 ): { success: true; message: string } | { success: false; reason: string } => {
-  const order = Orders.find((order) => order.id === id);
+  const order = Orders.find((order) => order.id === orderId);
   if (!order)
-    return { success: false, reason: `Order with id ${id} was not found` };
+    return { success: false, reason: `Order with id ${orderId} was not found` };
 
   if (order.status !== "delivered")
     return {
@@ -182,7 +183,7 @@ const returnOrder = (
     };
   }
 
-  const result = updateOrderStatus(id, "return_requested");
+  const result = updateOrderStatus(orderId, "return_requested");
   if (!result.success) return result;
 
   return {

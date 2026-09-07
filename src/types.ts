@@ -1,5 +1,19 @@
 export type OrderStatus =
-  "pending" | "confirmed" | "shipped" | "delivered" | "cancelled" | "return_requested" | "returned";
+  | "pending"
+  | "confirmed"
+  | "shipped"
+  | "delivered"
+  | "cancelled"
+  | "return_requested"
+  | "returned";
+
+export type ReturnStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "in_transit"
+  | "received"
+  | "refunded";
 
 export interface OrderItem {
   productId: number;
@@ -15,3 +29,13 @@ export interface Order {
   status: OrderStatus;
   createdAt: string; // ISO date string
 }
+
+export interface ReturnRequest {
+  orderId: number;
+  productId: number;
+  reason: string;
+  requestedAt: string; // ISO date string
+  approvedAt?: string; // ISO date string
+  status: "pending";
+}
+
