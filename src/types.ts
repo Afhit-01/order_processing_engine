@@ -31,6 +31,7 @@ export interface Order {
 }
 
 export interface ReturnRequest {
+  id: number;
   orderId: number;
   productId: number;
   reason: string;

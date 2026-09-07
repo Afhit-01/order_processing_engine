@@ -93,11 +93,11 @@ app.patch("/orders/:id/status", (req: Request, res: Response) => {
 
 // Request a return for an order
 app.patch(
-  "/return/:orderId/:productId/:reason",
+  "/return/:orderId/:productId/",
   (req: Request, res: Response) => {
     const orderId = Number(req.params.orderId);
     const productId = Number(req.params.productId);
-    const reason = req.params.reason;
+    const reason = req.body.reason;
 
     if (!reason)
       return res.status(400).json({

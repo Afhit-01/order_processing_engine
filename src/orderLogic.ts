@@ -4,6 +4,7 @@ import { createReturnRequest } from "./returnLogic.js";
 const Orders: Order[] = [];
 const ReturnRequests: ReturnRequest[] = [];
 let nextId = 1;
+let nextReturnId = 1;
 
 const validTransitions: Record<OrderStatus, OrderStatus[]> = {
   pending: ["confirmed", "cancelled"],
@@ -174,7 +175,7 @@ const returnOrder = (
     (item) => item.productId === productId,
   );
 
-  if (!productId) {
+  if (!foundSpecificItem) {
     return {
       success: false,
       reason: `Item with id ${productId} does not exit in order ${orderId}`,
@@ -197,8 +198,11 @@ const returnOrder = (
     };
   }
 
-  const returnedItem = createReturnRequest(orderId, productId, reason);
+  const returnedItem = createReturnRequest(nextReturnId++, orderId, productId, reason);
   ReturnRequests.push(returnedItem);
+
+  const statusResult = updateOrderStatus(orderId, "return_requested");
+  if (!statusResult.success) return statusResult;
 
   return {
     success: true,
