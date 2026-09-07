@@ -1,4 +1,5 @@
 import type { Order, OrderItem, OrderStatus, ReturnRequest } from "./types.js";
+import { createReturnRequest } from "./returnLogic.js";
 
 const Orders: Order[] = [];
 const ReturnRequests: ReturnRequest[] = [];
@@ -155,6 +156,8 @@ const getOrderReport = (): {
 
 const returnOrder = (
   orderId: number,
+  productId: number,
+  reason: string,
 ): { success: true; message: string } | { success: false; reason: string } => {
   const order = Orders.find((order) => order.id === orderId);
   if (!order)
@@ -166,6 +169,17 @@ const returnOrder = (
       reason:
         "Can't return this item yet. You can request a return after it has been delivered.",
     };
+
+  const foundSpecificItem = order.items.some(
+    (item) => item.productId === productId,
+  );
+
+  if (!productId) {
+    return {
+      success: false,
+      reason: `Item with id ${productId} does not exit in order ${orderId}`,
+    };
+  }
 
   const currentTime = Date.now();
   const createdAt = new Date(order.createdAt).getTime();
@@ -183,8 +197,8 @@ const returnOrder = (
     };
   }
 
-  const result = updateOrderStatus(orderId, "return_requested");
-  if (!result.success) return result;
+  const returnedItem = createReturnRequest(orderId, productId, reason);
+  ReturnRequests.push(returnedItem);
 
   return {
     success: true,

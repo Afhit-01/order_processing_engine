@@ -36,6 +36,6 @@ export interface ReturnRequest {
   reason: string;
   requestedAt: string; // ISO date string
   approvedAt?: string; // ISO date string
-  status: "pending";
+  status: ReturnStatus;
 }
 

@@ -9,6 +9,8 @@ import {
   updateOrderStatus,
   returnOrder,
 } from "./orderLogic.js";
+
+import { createReturnRequest } from "./returnLogic.js";
 import type { OrderStatus } from "./types.js";
 
 const app: Express = express();
@@ -90,20 +92,36 @@ app.patch("/orders/:id/status", (req: Request, res: Response) => {
 });
 
 // Request a return for an order
-app.patch("/return/:id", (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  const result = returnOrder(id);
+app.patch(
+  "/return/:orderId/:productId/:reason",
+  (req: Request, res: Response) => {
+    const orderId = Number(req.params.orderId);
+    const productId = Number(req.params.productId);
+    const reason = req.params.reason;
 
-  if (!result.success) {
-    return res.status(400).json({
-      error: result.reason,
+    if (!reason)
+      return res.status(400).json({
+        error: "Kindly provide a reason for return",
+      });
+
+    if (Array.isArray(reason))
+      return res.status(400).json({
+        error: "reason must be a string",
+      });
+
+    const result = returnOrder(orderId, productId, reason);
+
+    if (!result.success) {
+      return res.status(400).json({
+        error: result.reason,
+      });
+    }
+
+    res.status(200).json({
+      message: result.message,
     });
-  }
-
-  res.status(200).json({
-    message: result.message
-  });
-});
+  },
+);
 
 // Delete
 
