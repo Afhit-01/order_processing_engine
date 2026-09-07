@@ -16,12 +16,14 @@ const port = 3000;
 
 app.use(express.json());
 
+// Health and welcome route
 app.get("/", (req: Request, res: Response) => {
   res.status(200).send("Wanna test the order management system? see /orders");
 });
 
 // Create
 
+// Create an order
 app.post("/orders", (req: Request, res: Response) => {
   const { customerName, items } = req.body;
   const result = createOrder(customerName, items);
@@ -35,6 +37,7 @@ app.post("/orders", (req: Request, res: Response) => {
 
 // Read
 
+// Get orders filtered by status
 app.get("/orders", (req: Request, res: Response) => {
   const status = req.query.status as OrderStatus | undefined;
 
@@ -49,6 +52,7 @@ app.get("/orders", (req: Request, res: Response) => {
 
 // Read
 
+// Get the total for an order
 app.get("/orders/:id/total", (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const total = getOrderTotal(id);
@@ -60,12 +64,14 @@ app.get("/orders/:id/total", (req: Request, res: Response) => {
   res.status(200).json({ total });
 });
 
+// Get the order report
 app.get("/orders/report", (req: Request, res: Response) => {
   res.status(200).json(getOrderReport());
 });
 
 // Update
 
+// Update an order's status
 app.patch("/orders/:id/status", (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const status = req.body.status;
@@ -83,6 +89,7 @@ app.patch("/orders/:id/status", (req: Request, res: Response) => {
   });
 });
 
+// Request a return for an order
 app.patch("/return/:id", (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const result = returnOrder(id);
@@ -100,6 +107,7 @@ app.patch("/return/:id", (req: Request, res: Response) => {
 
 // Delete
 
+// Cancel an order
 app.delete("/orders/:id", (req: Request, res: Response) => {
   const result = cancelOrder(Number(req.params.id));
 
