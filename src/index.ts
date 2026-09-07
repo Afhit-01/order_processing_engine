@@ -83,7 +83,7 @@ app.patch("/orders/:id/status", (req: Request, res: Response) => {
 });
 
 app.patch("/return/:id", (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = Number(req.params.id);
 })
 
 // Delete
