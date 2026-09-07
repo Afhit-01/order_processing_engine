@@ -7,8 +7,9 @@ const validTransitions: Record<OrderStatus, OrderStatus[]> = {
   pending: ["confirmed", "cancelled"],
   confirmed: ["shipped", "cancelled"],
   shipped: ["delivered"],
-  delivered: [],
+  delivered: ["returned"],
   cancelled: [],
+  returned: [],
 };
 
 const createOrder = (
@@ -137,12 +138,52 @@ const getOrderReport = (): {
     shipped: Orders.filter((order) => order.status === "shipped").length,
     delivered: Orders.filter((order) => order.status === "delivered").length,
     cancelled: Orders.filter((order) => order.status === "cancelled").length,
+    returned: Orders.filter((order) => order.status === "returned").length,
   };
 
   return {
     totalOrders: Orders.length,
     byStatus: orderCounts,
     revenue: totalRevenue,
+  };
+};
+
+const returnOrder = (
+  id: number,
+): { success: true; message: string } | { success: false; reason: string } => {
+  const order = Orders.find((order) => order.id === id);
+  if (!order)
+    return { success: false, reason: `Order with id ${id} was not found` };
+
+  if (order.status !== "delivered")
+    return {
+      success: false,
+      reason:
+        "Can't return this item yet. You can request a return after it has been delivered.",
+    };
+
+  const currentTime = Date.now();
+  const createdAt = new Date(order.createdAt).getTime();
+  const millisecondsPerDay = 1000 * 24 * 60 * 60;
+
+  const daysSinceCreated = Math.floor(
+    (currentTime - createdAt) / millisecondsPerDay,
+  );
+
+  if (daysSinceCreated > 30) {
+    return {
+      success: false,
+      reason:
+        "Return period has expired. You can only return items within 30 days of delivery.",
+    };
+  }
+
+  const result = updateOrderStatus(id, "returned");
+  if (!result.success) return result;
+
+  return {
+    success: true,
+    message: "Your return request has been received and is under review",
   };
 };
 
@@ -153,4 +194,5 @@ export {
   getOrdersByStatus,
   getOrderTotal,
   updateOrderStatus,
+  returnOrder,
 };
