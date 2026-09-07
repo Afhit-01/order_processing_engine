@@ -7,8 +7,9 @@ const validTransitions: Record<OrderStatus, OrderStatus[]> = {
   pending: ["confirmed", "cancelled"],
   confirmed: ["shipped", "cancelled"],
   shipped: ["delivered"],
-  delivered: ["returned"],
+  delivered: ["return_requested"],
   cancelled: [],
+  return_requested: ["returned"],
   returned: [],
 };
 
@@ -138,6 +139,9 @@ const getOrderReport = (): {
     shipped: Orders.filter((order) => order.status === "shipped").length,
     delivered: Orders.filter((order) => order.status === "delivered").length,
     cancelled: Orders.filter((order) => order.status === "cancelled").length,
+    return_requested: Orders.filter(
+      (order) => order.status === "return_requested",
+    ).length,
     returned: Orders.filter((order) => order.status === "returned").length,
   };
 
@@ -178,7 +182,7 @@ const returnOrder = (
     };
   }
 
-  const result = updateOrderStatus(id, "returned");
+  const result = updateOrderStatus(id, "return_requested");
   if (!result.success) return result;
 
   return {

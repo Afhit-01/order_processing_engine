@@ -1,5 +1,5 @@
 export type OrderStatus =
-  "pending" | "confirmed" | "shipped" | "delivered" | "cancelled" | "returned";
+  "pending" | "confirmed" | "shipped" | "delivered" | "cancelled" | "return_requested" | "returned";
 
 export interface OrderItem {
   productId: number;
