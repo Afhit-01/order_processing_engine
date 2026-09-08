@@ -1,9 +1,17 @@
 import { Router, type Request, type Response } from "express";
 import { returnOrder } from "../services/returnService.js";
+import { isNumericString } from "../validation/orderValidation.js";
 
 const router = Router();
 
 router.patch("/:orderId/:productId", (req: Request, res: Response) => {
+  if (!isNumericString(req.params.orderId)) {
+    return res.status(400).json({ error: "orderId must be numeric" });
+  }
+  if (!isNumericString(req.params.productId)) {
+    return res.status(400).json({ error: "productId must be numeric" });
+  }
+
   const { reason } = req.body;
 
   if (!reason) {

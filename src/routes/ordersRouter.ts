@@ -8,10 +8,20 @@ import {
   updateOrderStatus,
 } from "../services/orderService.js";
 import type { OrderStatus } from "../types.js";
+import {
+  isCreateOrderPayload,
+  isValidStatus,
+  isNumericString,
+} from "../validation/orderValidation.js";
 
 const router = Router();
 
 router.post("/", (req: Request, res: Response) => {
+  if (!isCreateOrderPayload(req.body)) {
+    return res.status(400).json({
+      error: "Invalid order payload",
+    });
+  }
   const { customerName, items } = req.body;
   const result = createOrder(customerName, items);
 
@@ -33,25 +43,46 @@ router.get("/report", (req: Request, res: Response) => {
   res.status(200).json(getOrderReport());
 });
 
-router.get("/:id/total", (req: Request, res: Response) => {
-  const total = getOrderTotal(Number(req.params.id));
+router.get("/:orderId/total", (req: Request, res: Response) => {
+  if (!isNumericString(req.params.orderId)) {
+    return res.status(400).json({ error: "orderId must be numeric" });
+  }
+
+  const total = getOrderTotal(Number(req.params.orderId));
 
   if (total === null) return res.status(404).json({ error: "Order not found" });
   res.status(200).json({ total });
 });
 
-router.patch("/:id/status", (req: Request, res: Response) => {
-  const result = updateOrderStatus(Number(req.params.id), req.body.status);
+router.patch("/:orderId/status", (req: Request, res: Response) => {
+  if (!isNumericString(req.params.orderId)) {
+    return res.status(400).json({ error: "orderId must be numeric" });
+  }
+
+  const newStatus = req.body.status;
+
+  if (!isValidStatus(newStatus)) {
+    return res.status(400).json({
+      error: "Status is invalid",
+    });
+  }
+
+  const result = updateOrderStatus(Number(req.params.orderId), newStatus);
 
   if (!result.success) return res.status(400).json({ error: result.reason });
   res.status(200).json({ message: "Status updated" });
 });
 
-router.delete("/:id", (req: Request, res: Response) => {
-  const result = cancelOrder(Number(req.params.id));
+router.delete("/:orderId", (req: Request, res: Response) => {
+  if (!isNumericString(req.params.orderId)) {
+    return res.status(400).json({ error: "orderId must be numeric" });
+  }
+
+  const result = cancelOrder(Number(req.params.orderId));
 
   if (!result.success) return res.status(400).json({ error: result.reason });
   res.status(200).json({ message: "Order cancelled" });
 });
 
 export default router;
+
