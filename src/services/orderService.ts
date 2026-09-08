@@ -7,7 +7,7 @@ export const validTransitions: Record<OrderStatus, OrderStatus[]> = {
   shipped: ["delivered"],
   delivered: ["return_requested"],
   cancelled: [],
-  return_requested: ["returned"],
+  return_requested: ["returned", "delivered"],
   returned: [],
 };
 

@@ -2,6 +2,16 @@ import { Orders } from "../store/orderStore.js";
 import { ReturnRequests, getNextReturnId } from "../store/returnStore.js";
 import { createReturnRequest } from "../returnLogic.js";
 import { updateOrderStatus } from "./orderService.js";
+import type { Refund, ReturnStatus } from "../types.js";
+
+export const validReturnTransitions: Record<ReturnStatus, ReturnStatus[]> = {
+  pending: ["approved", "rejected"],
+  approved: ["in_transit"],
+  rejected: [],
+  in_transit: ["received"],
+  received: ["refunded"],
+  refunded: [],
+};
 
 export const returnOrder = (
   orderId: number,
@@ -61,4 +71,113 @@ export const returnOrder = (
     success: true,
     message: "Your return request has been received and is under review",
   };
+};
+
+export const reviewReturn = (
+  returnId: number,
+  decision: "approved" | "rejected",
+): { success: true } | { success: false; reason: string } => {
+  const returnRequest = ReturnRequests.find((r) => r.id === returnId);
+
+  if (!returnRequest) {
+    return {
+      success: false,
+      reason: `Return request with id ${returnId} does not exist`,
+    };
+  }
+
+  const isValid =
+    validReturnTransitions[returnRequest.status].includes(decision);
+
+  if (!isValid) {
+    return {
+      success: false,
+      reason: `Cannot move from ${returnRequest.status} to ${decision}`,
+    };
+  }
+
+  returnRequest.status = decision;
+  if (decision === "rejected") {
+    const orderResult = updateOrderStatus(returnRequest.orderId, "delivered");
+    if (!orderResult.success) return orderResult;
+  }
+  return { success: true };
+};
+
+export const markReturnInTransit = (
+  returnId: number,
+): { success: true } | { success: false; reason: string } => {
+  const returnRequest = ReturnRequests.find((r) => r.id === returnId);
+
+  if (!returnRequest) {
+    return {
+      success: false,
+      reason: `Return request with id ${returnId} does not exist`,
+    };
+  }
+
+  const isValid =
+    validReturnTransitions[returnRequest.status].includes("in_transit");
+
+  if (!isValid) {
+    return {
+      success: false,
+      reason: `Cannot move from ${returnRequest.status} to in_transit`,
+    };
+  }
+
+  returnRequest.status = "in_transit";
+  return { success: true };
+};
+
+export const receiveReturn = (
+  returnId: number,
+): { success: true } | { success: false; reason: string } => {
+  const returnRequest = ReturnRequests.find((r) => r.id === returnId);
+
+  if (!returnRequest) {
+    return {
+      success: false,
+      reason: `Return request with id ${returnId} does not exist`,
+    };
+  }
+
+  const isValid =
+    validReturnTransitions[returnRequest.status].includes("received");
+
+  if (!isValid) {
+    return {
+      success: false,
+      reason: `Cannot move from ${returnRequest.status} to received`,
+    };
+  }
+
+  returnRequest.status = "received";
+  return { success: true };
+};
+
+export const markReturnRefunded = (
+  returnId: number,
+): { success: true } | { success: false; reason: string } => {
+  const returnRequest = ReturnRequests.find((r) => r.id === returnId);
+
+  if (!returnRequest) {
+    return {
+      success: false,
+      reason: `Return request with id ${returnId} does not exit`,
+    };
+  }
+
+  const isValid =
+    validReturnTransitions[returnRequest.status].includes("refunded");
+
+  if (!isValid) {
+    return {
+      success: false,
+      reason: `Cannot move from ${returnRequest.status} to refunded`,
+    };
+  }
+
+  returnRequest.status = "refunded";
+  return { success: true };
 };
