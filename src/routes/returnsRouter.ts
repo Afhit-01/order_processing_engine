@@ -4,12 +4,15 @@ import { isNumericString } from "../validation/orderValidation.js";
 
 const router = Router();
 
-router.patch("/:orderId/:productId", (req: Request, res: Response) => {
+router.patch("/:orderId/:productId/:quantity", (req: Request, res: Response) => {
   if (!isNumericString(req.params.orderId)) {
     return res.status(400).json({ error: "orderId must be numeric" });
   }
   if (!isNumericString(req.params.productId)) {
     return res.status(400).json({ error: "productId must be numeric" });
+  }
+  if (!isNumericString(req.params.quantity)) {
+    return res.status(400).json({ error: "quantity must be numeric" });
   }
 
   const { reason } = req.body;
@@ -24,6 +27,7 @@ router.patch("/:orderId/:productId", (req: Request, res: Response) => {
   const result = returnOrder(
     Number(req.params.orderId),
     Number(req.params.productId),
+    Number(req.params.quantity),
     reason,
   );
 

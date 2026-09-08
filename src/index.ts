@@ -1,4 +1,4 @@
-import express, { type Express, type Request, type Response } from "express";
+import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import ordersRouter from "./routes/ordersRouter.js";
 import returnsRouter from "./routes/returnsRouter.js";
 
@@ -13,6 +13,11 @@ app.get("/", (req: Request, res: Response) => {
 
 app.use("/orders", ordersRouter);
 app.use("/return", returnsRouter);
+
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.log(err);
+  res.status(500).json({error: "Something went wrong"})
+});
 
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);

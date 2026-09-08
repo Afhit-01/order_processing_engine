@@ -6,6 +6,7 @@ import {
   getOrdersByStatus,
   getOrderTotal,
   updateOrderStatus,
+  getOrderById,
 } from "../services/orderService.js";
 import type { OrderStatus } from "../types.js";
 import {
@@ -13,21 +14,26 @@ import {
   isValidStatus,
   isNumericString,
 } from "../validation/orderValidation.js";
+import { validateBody } from "../middleware/validateBody.js";
 
 const router = Router();
 
-router.post("/", (req: Request, res: Response) => {
-  if (!isCreateOrderPayload(req.body)) {
-    return res.status(400).json({
-      error: "Invalid order payload",
-    });
-  }
-  const { customerName, items } = req.body;
-  const result = createOrder(customerName, items);
+router.post(
+  "/",
+  validateBody(isCreateOrderPayload),
+  (req: Request, res: Response) => {
+    if (!isCreateOrderPayload(req.body)) {
+      return res.status(400).json({
+        error: "Invalid order payload",
+      });
+    }
+    const { customerName, items } = req.body;
+    const result = createOrder(customerName, items);
 
-  if (!result.success) return res.status(400).json({ error: result.reason });
-  res.status(201).json(result.order);
-});
+    if (!result.success) return res.status(400).json({ error: result.reason });
+    res.status(201).json(result.order);
+  },
+);
 
 router.get("/", (req: Request, res: Response) => {
   const status = req.query.status as OrderStatus | undefined;
@@ -37,6 +43,21 @@ router.get("/", (req: Request, res: Response) => {
   }
 
   res.status(200).json(getOrdersByStatus(status));
+});
+
+router.get("/:orderId", (req: Request, res: Response) => {
+  if (!isNumericString(req.params.orderId)) {
+    return res.status(400).json({ error: "orderId must be numeric" });
+  }
+  
+  const orderId = Number(req.params.orderId);
+  const order = getOrderById(orderId);
+
+  if (!order) {
+    return res.status(404).json({ error: "Order not found" });
+  }
+
+  res.status(200).json(order);
 });
 
 router.get("/report", (req: Request, res: Response) => {
@@ -85,4 +106,3 @@ router.delete("/:orderId", (req: Request, res: Response) => {
 });
 
 export default router;
-

@@ -65,6 +65,11 @@ export const updateOrderStatus = (
   return { success: true };
 };
 
+export const getOrderById = (id: number): Order | null => {
+  const order = Orders.find((order) => order.id === id);
+  return order || null;
+};
+
 export const getOrderTotal = (id: number): number | null => {
   const order = Orders.find((order) => order.id === id);
   if (!order) return null;

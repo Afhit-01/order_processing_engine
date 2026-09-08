@@ -15,6 +15,8 @@ export type ReturnStatus =
   | "received"
   | "refunded";
 
+export type RefundStatus = "pending" | "completed" | "failed";
+
 export interface OrderItem {
   productId: number;
   name: string;
@@ -35,8 +37,19 @@ export interface ReturnRequest {
   orderId: number;
   productId: number;
   reason: string;
+  quantity: number;
   requestedAt: string; // ISO date string
   approvedAt?: string; // ISO date string
   status: ReturnStatus;
 }
 
+export interface Refund {
+  id: number;
+  returnRequestId: number;
+  orderId: number;
+  productId: number;
+  amount: number;
+  status: RefundStatus;
+  requestedAt: string; // ISO date string
+  completedAt: string | null; // ISO date string
+}

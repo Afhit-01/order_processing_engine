@@ -6,6 +6,7 @@ import { updateOrderStatus } from "./orderService.js";
 export const returnOrder = (
   orderId: number,
   productId: number,
+  quantity: number,
   reason: string,
 ): { success: true; message: string } | { success: false; reason: string } => {
   const order = Orders.find((order) => order.id === orderId);
@@ -48,6 +49,7 @@ export const returnOrder = (
     getNextReturnId(),
     orderId,
     productId,
+    quantity,
     reason,
   );
   ReturnRequests.push(returnedItem);
