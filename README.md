@@ -24,13 +24,27 @@ src/
   routes/
     ordersRouter.ts              /orders route handlers
     returnsRouter.ts             /return route handlers
+  validation/
+    orderValidation.ts           Runtime type guards for request bodies and route params
 ```
 
 The app is layered store → service → route:
 
-- **store** — holds the data (in-memory arrays for now) and id generation, nothing else
-- **service** — holds business rules and validation, imports from store
-- **route** — holds Express handlers, imports from service, mounted onto `app` in `index.ts`
+- **store**: holds the data (in-memory arrays for now) and id generation, nothing else
+- **service**: holds business rules and validation, imports from store
+- **route**: holds Express handlers, imports from service, mounted onto `app` in `index.ts`
+
+## Runtime Request Validation
+
+TypeScript types don't exist at runtime, so `req.body` and `req.params` are checked with type guards before they reach any service function:
+
+| Guard | Checks |
+|---|---|
+| `isCreateOrderPayload` | `customerName` is a string and `items` is an array of valid `OrderItem` objects |
+| `isValidStatus` | the value is one of the seven `OrderStatus` strings |
+| `isNumericString` | the value is a non-empty string that converts to a valid number |
+
+`isNumericString` guards every route parameter that gets passed into `Number(...)`, so a non-numeric `orderId` or `productId` now returns a `400` instead of silently becoming `NaN` and behaving like a not-found order.
 
 ## Domain Model
 
@@ -59,9 +73,11 @@ Any transition not listed above is rejected with a clear reason rather than sile
 
 ## Validation Rules
 
+- The request body for creating an order must be a valid `customerName` and `items` array, or the request is rejected before reaching business logic.
+- Any `orderId` or `productId` route parameter must be numeric, or the request is rejected before reaching business logic.
 - An order with an empty cart is rejected.
 - An item with a non positive quantity or unit price is rejected.
-- A status change that is not in the transition table is rejected.
+- A status change must be one of the seven valid `OrderStatus` values, and must be in the transition table, or it is rejected.
 - A return request is only accepted for orders already in the `delivered` state.
 - A return request is rejected after 30 days from the order creation date.
 - A return request must include a `reason`, and it must be a string.
@@ -77,10 +93,10 @@ Validation functions return a typed result (`{ success: true, ... }` or `{ succe
 | POST | `/orders` | Create a new order (validated) |
 | GET | `/orders?status=<status>` | Filter orders by status |
 | GET | `/orders/report` | Revenue and status breakdown |
-| GET | `/orders/:id/total` | Compute an order's total |
-| PATCH | `/orders/:id/status` | Transition an order's status (validated) |
+| GET | `/orders/:orderId/total` | Compute an order's total |
+| PATCH | `/orders/:orderId/status` | Transition an order's status (validated) |
 | PATCH | `/return/:orderId/:productId` | Submit a return request for a delivered order (body: `{ "reason": string }`) |
-| DELETE | `/orders/:id` | Cancel an order (not a hard delete) |
+| DELETE | `/orders/:orderId` | Cancel an order (not a hard delete) |
 
 ## Getting Started
 
