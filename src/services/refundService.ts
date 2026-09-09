@@ -2,9 +2,9 @@ import { getNextRefundId, Refunds } from "../store/refundStore.js";
 import { ReturnRequests } from "../store/returnStore.js";
 import type { Refund } from "../types.js";
 import { updateOrderStatus } from "./orderService.js";
-import { markReturnRefunded, validReturnTransitions } from "./returnService.js";
+import { markReturnRefunded } from "./returnService.js";
 
-const procesRefund = (
+export const processRefund = (
   returnId: number,
   amount: number,
 ): { success: true; refund: Refund } | { success: false; reason: string } => {

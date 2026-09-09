@@ -7,6 +7,7 @@ import {
 } from "../services/returnService.js";
 import { isNumericString } from "../validation/orderValidation.js";
 import { ReturnRequests } from "../store/returnStore.js";
+import { processRefund } from "../services/refundService.js";
 
 const router = Router();
 
@@ -164,6 +165,49 @@ router.patch("/:orderId/:productId/receive", (req: Request, res: Response) => {
   return res.status(200).json({
     message: "Return received successfully",
     returnRequest: item,
+  });
+});
+
+router.post("/:orderId/:productId/refund", (req: Request, res: Response) => {
+  const orderId = req.params.orderId;
+  const productId = req.params.productId;
+
+  if (!isNumericString(orderId)) {
+    return res.status(400).json({ error: "orderId must be numeric" });
+  }
+
+  if (!isNumericString(productId)) {
+    return res.status(400).json({ error: "productId must be numeric" });
+  }
+
+  const { refundAmount } = req.body;
+
+  if (typeof refundAmount !== "number") {
+    return res.status(400).json({
+      error: "refundAmount must be a number",
+    });
+  }
+
+  const item = ReturnRequests.find(
+    (r) => r.orderId === Number(orderId) && r.productId === Number(productId),
+  );
+
+  if (!item) {
+    return res.status(404).json({
+      error:
+        "Request with the provided IDs cannot be found. Kindly check if there was a mismatch.",
+    });
+  }
+
+  const result = processRefund(item.id, refundAmount);
+
+  if (!result.success) {
+    return res.status(400).json({ error: result.reason });
+  }
+
+  return res.status(200).json({
+    message: "Refund request created successfully",
+    refund: result.refund,
   });
 });
 
