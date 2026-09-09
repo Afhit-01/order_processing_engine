@@ -12,7 +12,7 @@ A backend API for managing the full lifecycle of an order, from creation through
 
 ```
 src/
-  index.ts                    Express app setup and router mounting
+  server.ts                    Express app setup and router mounting
   types.ts                    Shared type definitions
   returnLogic.ts               Return-request factory function
   store/
@@ -36,7 +36,7 @@ The app is layered store → service → route:
 
 - **store**: holds the data (in-memory arrays for now) and id generation, nothing else
 - **service**: holds business rules and validation, imports from store
-- **route**: holds Express handlers, imports from service, mounted onto `app` in `index.ts`
+- **route**: holds Express handlers, imports from service, mounted onto `app` in `server.ts`
 - **middleware**: reusable Express middleware, such as generic request body validation
 
 ## Runtime Request Validation
@@ -131,7 +131,7 @@ Validation functions return a typed result (`{ success: true, ... }` or `{ succe
 git clone https://github.com/Afhit-01/order_processing_engine.git
 cd order_processing_engine
 npm install
-npx ts-node src/index.ts
+npx ts-node src/server.ts
 ```
 
 The server runs on `http://localhost:3000`.
