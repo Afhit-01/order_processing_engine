@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import {
   markReturnInTransit,
+  receiveReturn,
   returnOrder,
   reviewReturn,
 } from "../services/returnService.js";
@@ -120,15 +121,50 @@ router.patch("/:orderId/:productId/ship", (req: Request, res: Response) => {
   }
 
   const result = markReturnInTransit(item.id);
-  
-   if (!result.success) {
+
+  if (!result.success) {
     return res.status(400).json({ error: result.reason });
   }
 
   return res.status(200).json({
-  message: "Return marked as in transit successfully",
-  returnRequest: item,
+    message: "Return marked as in transit successfully",
+    returnRequest: item,
+  });
 });
+
+router.patch("/:orderId/:productId/receive", (req: Request, res: Response) => {
+  const orderId = req.params.orderId;
+  const productId = req.params.productId;
+
+  if (!isNumericString(orderId)) {
+    return res.status(400).json({ error: "orderId must be numeric" });
+  }
+
+  if (!isNumericString(productId)) {
+    return res.status(400).json({ error: "productId must be numeric" });
+  }
+
+  const item = ReturnRequests.find(
+    (r) => r.orderId === Number(orderId) && r.productId === Number(productId),
+  );
+
+  if (!item) {
+    return res.status(404).json({
+      error:
+        "Request with the provided IDs cannot be found. Kindly check if there was a mismatch.",
+    });
+  }
+
+  const result = receiveReturn(item.id);
+
+  if (!result.success) {
+    return res.status(400).json({ error: result.reason });
+  }
+
+  return res.status(200).json({
+    message: "Return received successfully",
+    returnRequest: item,
+  });
 });
 
 export default router;
