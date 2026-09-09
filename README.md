@@ -1,6 +1,6 @@
 # **Order Processing Engine**
 
-A backend API for managing the full lifecycle of an order, from creation through confirmation, shipping, delivery, return requests, and refunds. Built with validated state transitions, business rule enforcement, return-request handling, refund processing, and revenue reporting.
+A backend API for managing the full lifecycle of an order, from creation through confirmation, shipping, delivery, return requests, and refunds. Built with validated state transitions, business rule enforcement, return-request handling, refund processing, and revenue reporting..
 
 ## **Tech Stack**
 
