@@ -55,7 +55,7 @@ export const completeRefund = (
   if (!refund) {
     return {
       success: false,
-      reason: `Refund request with id ${refundId} does not exit`,
+      reason: `Refund request with id ${refundId} does not exist`,
     };
   }
 
@@ -66,17 +66,25 @@ export const completeRefund = (
     };
   }
 
-  refund.status = outcome;
-
-  if (outcome === "completed") {
-    refund.completedAt = new Date().toISOString();
-
-    const returnResult = markReturnRefunded(refund.returnRequestId);
-    if (!returnResult.success) return returnResult;
-
-    const orderResult = updateOrderStatus(refund.orderId, "returned");
-    if (!orderResult.success) return orderResult;
+  if (outcome === "failed") {
+    refund.status = "failed";
+    return { success: true };
   }
+
+  const returnResult = markReturnRefunded(refund.returnRequestId);
+
+  if (!returnResult.success) {
+    return returnResult;
+  }
+
+  const orderResult = updateOrderStatus(refund.orderId, "returned");
+
+  if (!orderResult.success) {
+    return orderResult;
+  }
+
+  refund.status = "completed";
+  refund.completedAt = new Date().toISOString();
 
   return { success: true };
 };

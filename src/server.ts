@@ -1,6 +1,7 @@
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import ordersRouter from "./routes/ordersRouter.js";
 import returnsRouter from "./routes/returnsRouter.js";
+import refundsRouter from "./routes/refundsRouter.js";
 
 const app: Express = express();
 const port = 3000;
@@ -13,6 +14,7 @@ app.get("/", (req: Request, res: Response) => {
 
 app.use("/orders", ordersRouter);
 app.use("/return", returnsRouter);
+app.use("/refunds", refundsRouter);
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.log(err);
