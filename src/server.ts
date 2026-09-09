@@ -1,4 +1,9 @@
-import express, { type Express, type NextFunction, type Request, type Response } from "express";
+import express, {
+  type Express,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import ordersRouter from "./routes/ordersRouter.js";
 import returnsRouter from "./routes/returnsRouter.js";
 import refundsRouter from "./routes/refundsRouter.js";
@@ -18,7 +23,7 @@ app.use("/refunds", refundsRouter);
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.log(err);
-  res.status(500).json({error: "Something went wrong"})
+  res.status(500).json({ error: "Something went wrong" });
 });
 
 app.listen(port, () => {

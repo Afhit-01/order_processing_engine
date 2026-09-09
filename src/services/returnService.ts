@@ -19,7 +19,6 @@ export const returnOrder = (
   quantity: number,
   reason: string,
 ): { success: true; message: string } | { success: false; reason: string } => {
-  
   const order = Orders.find((order) => order.id === orderId);
   if (!order) {
     return { success: false, reason: `Order with id ${orderId} was not found` };

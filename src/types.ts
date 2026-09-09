@@ -8,12 +8,7 @@ export type OrderStatus =
   | "returned";
 
 export type ReturnStatus =
-  | "pending"
-  | "approved"
-  | "rejected"
-  | "in_transit"
-  | "received"
-  | "refunded";
+  "pending" | "approved" | "rejected" | "in_transit" | "received" | "refunded";
 
 export type RefundStatus = "pending" | "completed" | "failed";
 

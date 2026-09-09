@@ -129,7 +129,8 @@ export const getOrderReport = (): {
     shipped: Orders.filter((o) => o.status === "shipped").length,
     delivered: Orders.filter((o) => o.status === "delivered").length,
     cancelled: Orders.filter((o) => o.status === "cancelled").length,
-    return_requested: Orders.filter((o) => o.status === "return_requested").length,
+    return_requested: Orders.filter((o) => o.status === "return_requested")
+      .length,
     returned: Orders.filter((o) => o.status === "returned").length,
   };
 

@@ -49,7 +49,7 @@ router.get("/:orderId", (req: Request, res: Response) => {
   if (!isNumericString(req.params.orderId)) {
     return res.status(400).json({ error: "orderId must be numeric" });
   }
-  
+
   const orderId = Number(req.params.orderId);
   const order = getOrderById(orderId);
 

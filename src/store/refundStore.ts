@@ -4,4 +4,3 @@ export const Refunds: Refund[] = [];
 
 let nextRefundId = 1;
 export const getNextRefundId = (): number => nextRefundId++;
-

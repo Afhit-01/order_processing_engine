@@ -39,9 +39,7 @@ const orderStatuses = [
 export const isValidStatus = (status: unknown): status is OrderStatus => {
   if (typeof status !== "string") return false;
 
-  return (
-    orderStatuses.includes(status as OrderStatus)
-  );
+  return orderStatuses.includes(status as OrderStatus);
 };
 
 export const isNumericString = (value: unknown): value is string => {
