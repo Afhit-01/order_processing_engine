@@ -45,6 +45,10 @@ router.get("/", (req: Request, res: Response) => {
   res.status(200).json(getOrdersByStatus(status));
 });
 
+router.get("/report", (req: Request, res: Response) => {
+  res.status(200).json(getOrderReport());
+});
+
 router.get("/:orderId", (req: Request, res: Response) => {
   if (!isNumericString(req.params.orderId)) {
     return res.status(400).json({ error: "orderId must be numeric" });
@@ -58,10 +62,6 @@ router.get("/:orderId", (req: Request, res: Response) => {
   }
 
   res.status(200).json(order);
-});
-
-router.get("/report", (req: Request, res: Response) => {
-  res.status(200).json(getOrderReport());
 });
 
 router.get("/:orderId/total", (req: Request, res: Response) => {
