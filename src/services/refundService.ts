@@ -5,7 +5,7 @@ import { updateOrderStatus } from "./orderService.js";
 import { markReturnRefunded } from "./returnService.js";
 
 export const processRefund = (
-  returnId: number,
+  returnId: string,
   amount: number,
 ): { success: true; refund: Refund } | { success: false; reason: string } => {
   const returnRequest = ReturnRequests.find((r) => r.id === returnId);
@@ -47,7 +47,7 @@ export const processRefund = (
 };
 
 export const completeRefund = (
-  refundId: number,
+  refundId: string,
   outcome: "completed" | "failed",
 ): { success: true } | { success: false; reason: string } => {
   const refund = Refunds.find((r) => r.id === refundId);

@@ -5,7 +5,10 @@ import {
   returnOrder,
   reviewReturn,
 } from "../services/returnService.js";
-import { isNumericString } from "../validation/orderValidation.js";
+import {
+  isValidParam,
+  isNumericString,
+} from "../validation/orderValidation.js";
 import { ReturnRequests } from "../store/returnStore.js";
 import { processRefund } from "../services/refundService.js";
 
@@ -14,11 +17,11 @@ const router = Router();
 router.patch(
   "/:orderId/:productId/:quantity",
   (req: Request, res: Response) => {
-    if (!isNumericString(req.params.orderId)) {
-      return res.status(400).json({ error: "orderId must be numeric" });
+    if (!isValidParam(req.params.orderId)) {
+      return res.status(400).json({ error: "orderId must be provided" });
     }
-    if (!isNumericString(req.params.productId)) {
-      return res.status(400).json({ error: "productId must be numeric" });
+    if (!isValidParam(req.params.productId)) {
+      return res.status(400).json({ error: "productId must be provided" });
     }
     if (!isNumericString(req.params.quantity)) {
       return res.status(400).json({ error: "quantity must be numeric" });
@@ -36,8 +39,8 @@ router.patch(
     }
 
     const result = returnOrder(
-      Number(req.params.orderId),
-      Number(req.params.productId),
+      req.params.orderId,
+      req.params.productId,
       Number(req.params.quantity),
       reason,
     );
@@ -51,12 +54,12 @@ router.patch("/:orderId/:productId/review", (req: Request, res: Response) => {
   const orderId = req.params.orderId;
   const productId = req.params.productId;
 
-  if (!isNumericString(orderId)) {
-    return res.status(400).json({ error: "orderId must be numeric" });
+  if (!isValidParam(orderId)) {
+    return res.status(400).json({ error: "orderId must be provided" });
   }
 
-  if (!isNumericString(productId)) {
-    return res.status(400).json({ error: "productId must be numeric" });
+  if (!isValidParam(productId)) {
+    return res.status(400).json({ error: "productId must be provided" });
   }
 
   const { review } = req.body;
@@ -76,7 +79,7 @@ router.patch("/:orderId/:productId/review", (req: Request, res: Response) => {
   }
 
   const item = ReturnRequests.find(
-    (r) => r.orderId === Number(orderId) && r.productId === Number(productId),
+    (r) => r.orderId === orderId && r.productId === productId,
   );
 
   if (!item) {
@@ -102,16 +105,16 @@ router.patch("/:orderId/:productId/ship", (req: Request, res: Response) => {
   const orderId = req.params.orderId;
   const productId = req.params.productId;
 
-  if (!isNumericString(orderId)) {
-    return res.status(400).json({ error: "orderId must be numeric" });
+  if (!isValidParam(orderId)) {
+    return res.status(400).json({ error: "orderId must be provided" });
   }
 
-  if (!isNumericString(productId)) {
-    return res.status(400).json({ error: "productId must be numeric" });
+  if (!isValidParam(productId)) {
+    return res.status(400).json({ error: "productId must be provided" });
   }
 
   const item = ReturnRequests.find(
-    (r) => r.orderId === Number(orderId) && r.productId === Number(productId),
+    (r) => r.orderId === orderId && r.productId === productId,
   );
 
   if (!item) {
@@ -137,16 +140,16 @@ router.patch("/:orderId/:productId/receive", (req: Request, res: Response) => {
   const orderId = req.params.orderId;
   const productId = req.params.productId;
 
-  if (!isNumericString(orderId)) {
-    return res.status(400).json({ error: "orderId must be numeric" });
+  if (!isValidParam(orderId)) {
+    return res.status(400).json({ error: "orderId must be provided" });
   }
 
-  if (!isNumericString(productId)) {
-    return res.status(400).json({ error: "productId must be numeric" });
+  if (!isValidParam(productId)) {
+    return res.status(400).json({ error: "productId must be provided" });
   }
 
   const item = ReturnRequests.find(
-    (r) => r.orderId === Number(orderId) && r.productId === Number(productId),
+    (r) => r.orderId === orderId && r.productId === productId,
   );
 
   if (!item) {
@@ -172,12 +175,12 @@ router.post("/:orderId/:productId/refund", (req: Request, res: Response) => {
   const orderId = req.params.orderId;
   const productId = req.params.productId;
 
-  if (!isNumericString(orderId)) {
-    return res.status(400).json({ error: "orderId must be numeric" });
+  if (!isValidParam(orderId)) {
+    return res.status(400).json({ error: "orderId must be provided" });
   }
 
-  if (!isNumericString(productId)) {
-    return res.status(400).json({ error: "productId must be numeric" });
+  if (!isValidParam(productId)) {
+    return res.status(400).json({ error: "productId must be provided" });
   }
 
   const { refundAmount } = req.body;
@@ -189,7 +192,7 @@ router.post("/:orderId/:productId/refund", (req: Request, res: Response) => {
   }
 
   const item = ReturnRequests.find(
-    (r) => r.orderId === Number(orderId) && r.productId === Number(productId),
+    (r) => r.orderId === orderId && r.productId === productId,
   );
 
   if (!item) {

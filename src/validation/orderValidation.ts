@@ -5,7 +5,7 @@ const isOrderItem = (value: unknown): value is OrderItem => {
 
   const item = value as Record<string, unknown>;
   return (
-    typeof item.productId === "number" &&
+    typeof item.productId === "string" &&
     typeof item.name === "string" &&
     typeof item.unitPrice === "number" &&
     typeof item.quantity === "number"
@@ -42,6 +42,14 @@ export const isValidStatus = (status: unknown): status is OrderStatus => {
   return orderStatuses.includes(status as OrderStatus);
 };
 
+export function isValidParam(
+  value: string | string[] | undefined,
+): value is string {
+  return typeof value === "string";
+}
+
+// Used for route params that represent actual numeric business fields
+// (e.g. quantity), not IDs.
 export const isNumericString = (value: unknown): value is string => {
   return (
     typeof value === "string" &&

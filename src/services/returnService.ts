@@ -14,8 +14,8 @@ export const validReturnTransitions: Record<ReturnStatus, ReturnStatus[]> = {
 };
 
 export const returnOrder = (
-  orderId: number,
-  productId: number,
+  orderId: string,
+  productId: string,
   quantity: number,
   reason: string,
 ): { success: true; message: string } | { success: false; reason: string } => {
@@ -74,7 +74,7 @@ export const returnOrder = (
 };
 
 export const reviewReturn = (
-  returnId: number,
+  returnId: string,
   decision: "approved" | "rejected",
 ): { success: true } | { success: false; reason: string } => {
   const returnRequest = ReturnRequests.find((r) => r.id === returnId);
@@ -105,7 +105,7 @@ export const reviewReturn = (
 };
 
 export const markReturnInTransit = (
-  returnId: number,
+  returnId: string,
 ): { success: true } | { success: false; reason: string } => {
   const returnRequest = ReturnRequests.find((r) => r.id === returnId);
 
@@ -131,7 +131,7 @@ export const markReturnInTransit = (
 };
 
 export const receiveReturn = (
-  returnId: number,
+  returnId: string,
 ): { success: true } | { success: false; reason: string } => {
   const returnRequest = ReturnRequests.find((r) => r.id === returnId);
 
@@ -157,7 +157,7 @@ export const receiveReturn = (
 };
 
 export const markReturnRefunded = (
-  returnId: number,
+  returnId: string,
 ): { success: true } | { success: false; reason: string } => {
   const returnRequest = ReturnRequests.find((r) => r.id === returnId);
 

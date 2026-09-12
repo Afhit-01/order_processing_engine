@@ -1,9 +1,9 @@
 import type { ReturnStatus, ReturnRequest } from "./types.js";
 
 export const createReturnRequest = (
-  id: number,
-  orderId: number,
-  productId: number,
+  id: string,
+  orderId: string,
+  productId: string,
   quantity: number,
   reason: string,
 ): ReturnRequest => {

@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { completeRefund } from "../services/refundService.js";
 import { Refunds } from "../store/refundStore.js";
-import { isNumericString } from "../validation/orderValidation.js";
+import { isValidParam } from "../validation/orderValidation.js";
 
 const router = Router();
 
@@ -9,9 +9,9 @@ router.patch("/:refundId/complete", (req: Request, res: Response) => {
   const { refundId } = req.params;
   const { outcome } = req.body;
 
-  if (!isNumericString(refundId)) {
+  if (!isValidParam(refundId)) {
     return res.status(400).json({
-      error: "refundId must be numeric",
+      error: "refundId must be provided",
     });
   }
 
@@ -27,7 +27,7 @@ router.patch("/:refundId/complete", (req: Request, res: Response) => {
     });
   }
 
-  const result = completeRefund(Number(refundId), outcome);
+  const result = completeRefund(refundId, outcome);
 
   if (!result.success) {
     return res.status(400).json({
@@ -35,7 +35,7 @@ router.patch("/:refundId/complete", (req: Request, res: Response) => {
     });
   }
 
-  const refund = Refunds.find((r) => r.id === Number(refundId));
+  const refund = Refunds.find((r) => r.id === refundId);
 
   return res.status(200).json({
     message:

@@ -12,7 +12,7 @@ import type { OrderStatus } from "../types.js";
 import {
   isCreateOrderPayload,
   isValidStatus,
-  isNumericString,
+  isValidParam,
 } from "../validation/orderValidation.js";
 import { validateBody } from "../middleware/validateBody.js";
 
@@ -50,11 +50,11 @@ router.get("/report", (req: Request, res: Response) => {
 });
 
 router.get("/:orderId", (req: Request, res: Response) => {
-  if (!isNumericString(req.params.orderId)) {
-    return res.status(400).json({ error: "orderId must be numeric" });
+  if (!isValidParam(req.params.orderId)) {
+    return res.status(400).json({ error: "orderId must be provided" });
   }
 
-  const orderId = Number(req.params.orderId);
+  const orderId = req.params.orderId;
   const order = getOrderById(orderId);
 
   if (!order) {
@@ -65,19 +65,19 @@ router.get("/:orderId", (req: Request, res: Response) => {
 });
 
 router.get("/:orderId/total", (req: Request, res: Response) => {
-  if (!isNumericString(req.params.orderId)) {
-    return res.status(400).json({ error: "orderId must be numeric" });
+  if (!isValidParam(req.params.orderId)) {
+    return res.status(400).json({ error: "orderId must be provided" });
   }
 
-  const total = getOrderTotal(Number(req.params.orderId));
+  const total = getOrderTotal(req.params.orderId);
 
   if (total === null) return res.status(404).json({ error: "Order not found" });
   res.status(200).json({ total });
 });
 
 router.patch("/:orderId/status", (req: Request, res: Response) => {
-  if (!isNumericString(req.params.orderId)) {
-    return res.status(400).json({ error: "orderId must be numeric" });
+  if (!isValidParam(req.params.orderId)) {
+    return res.status(400).json({ error: "orderId must be provided" });
   }
 
   const newStatus = req.body.status;
@@ -88,18 +88,18 @@ router.patch("/:orderId/status", (req: Request, res: Response) => {
     });
   }
 
-  const result = updateOrderStatus(Number(req.params.orderId), newStatus);
+  const result = updateOrderStatus(req.params.orderId, newStatus);
 
   if (!result.success) return res.status(400).json({ error: result.reason });
   res.status(200).json({ message: "Status updated" });
 });
 
 router.delete("/:orderId", (req: Request, res: Response) => {
-  if (!isNumericString(req.params.orderId)) {
-    return res.status(400).json({ error: "orderId must be numeric" });
+  if (!isValidParam(req.params.orderId)) {
+    return res.status(400).json({ error: "orderId must be provided" });
   }
 
-  const result = cancelOrder(Number(req.params.orderId));
+  const result = cancelOrder(req.params.orderId);
 
   if (!result.success) return res.status(400).json({ error: result.reason });
   res.status(200).json({ message: "Order cancelled" });

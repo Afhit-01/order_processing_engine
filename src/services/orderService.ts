@@ -43,7 +43,7 @@ export const createOrder = (
 };
 
 export const updateOrderStatus = (
-  id: number,
+  id: string,
   newStatus: OrderStatus,
 ): { success: true } | { success: false; reason: string } => {
   const order = Orders.find((order) => order.id === id);
@@ -65,12 +65,12 @@ export const updateOrderStatus = (
   return { success: true };
 };
 
-export const getOrderById = (id: number): Order | null => {
+export const getOrderById = (id: string): Order | null => {
   const order = Orders.find((order) => order.id === id);
   return order || null;
 };
 
-export const getOrderTotal = (id: number): number | null => {
+export const getOrderTotal = (id: string): number | null => {
   const order = Orders.find((order) => order.id === id);
   if (!order) return null;
 
@@ -85,7 +85,7 @@ export const getOrdersByStatus = (status: OrderStatus): Order[] => {
 };
 
 export const cancelOrder = (
-  id: number,
+  id: string,
 ): { success: true } | { success: false; reason: string } => {
   const order = Orders.find((order) => order.id === id);
 
