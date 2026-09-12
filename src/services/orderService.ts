@@ -1,5 +1,5 @@
 import type { Order, OrderItem, OrderStatus } from "../types.js";
-import { Orders, getNextOrderId } from "../store/orderStore.js";
+import { getOrderByIdFromDb, getOrderReportFromId, getOrdersByStatusFromDb, insertOrder, updateOrderStatusInDb } from "../store/orderStore.js";
 
 export const validTransitions: Record<OrderStatus, OrderStatus[]> = {
   pending: ["confirmed", "cancelled"],
@@ -11,10 +11,10 @@ export const validTransitions: Record<OrderStatus, OrderStatus[]> = {
   returned: [],
 };
 
-export const createOrder = (
+export const createOrder = async (
   customerName: string,
   items: OrderItem[],
-): { success: true; order: Order } | { success: false; reason: string } => {
+): Promise<{ success: true; order: Order } | { success: false; reason: string }> => {
   if (items.length === 0) {
     return { success: false, reason: "Order cart cannot be empty" };
   }
@@ -30,23 +30,16 @@ export const createOrder = (
     };
   }
 
-  const order: Order = {
-    id: getNextOrderId(),
-    customerName,
-    items,
-    status: "pending",
-    createdAt: new Date().toISOString(),
-  };
-
-  Orders.push(order);
+  const order = await insertOrder(customerName, items);
   return { success: true, order };
 };
 
-export const updateOrderStatus = (
+export const updateOrderStatus = async (
   id: string,
   newStatus: OrderStatus,
-): { success: true } | { success: false; reason: string } => {
-  const order = Orders.find((order) => order.id === id);
+): Promise<{ success: true } | { success: false; reason: string }> => {
+
+  const order = await getOrderByIdFromDb(id);
 
   if (!order) {
     return { success: false, reason: `Order with id ${id} does not exist` };
@@ -61,17 +54,18 @@ export const updateOrderStatus = (
     };
   }
 
-  order.status = newStatus;
+  await updateOrderStatusInDb(id, newStatus);
   return { success: true };
 };
 
-export const getOrderById = (id: string): Order | null => {
-  const order = Orders.find((order) => order.id === id);
+export const getOrderById = async (id: string): Promise<Order | null> => {
+  const order = await getOrderByIdFromDb(id)
   return order || null;
 };
 
-export const getOrderTotal = (id: string): number | null => {
-  const order = Orders.find((order) => order.id === id);
+export const getOrderTotal = async (id: string): Promise<number | null> => {
+  const order = await getOrderByIdFromDb(id);
+  
   if (!order) return null;
 
   return order.items.reduce(
@@ -80,59 +74,31 @@ export const getOrderTotal = (id: string): number | null => {
   );
 };
 
-export const getOrdersByStatus = (status: OrderStatus): Order[] => {
-  return Orders.filter((order) => order.status === status);
+export const getOrdersByStatus = async (status: OrderStatus): Promise<Order[]> => {
+  return await getOrdersByStatusFromDb(status);
 };
 
-export const cancelOrder = (
+export const cancelOrder = async (
   id: string,
-): { success: true } | { success: false; reason: string } => {
-  const order = Orders.find((order) => order.id === id);
+): Promise<{ success: true } | { success: false; reason: string }> => {
+  const order = await getOrderByIdFromDb(id);
 
   if (!order) {
     return { success: false, reason: "Item not found" };
   }
 
   if (order.status === "pending" || order.status === "confirmed") {
-    order.status = "cancelled";
+    await updateOrderStatusInDb(id, "cancelled");
     return { success: true };
   }
 
   return { success: false, reason: "Can't cancel at this stage" };
 };
 
-export const getOrderReport = (): {
+export const getOrderReport = async (): Promise<{
   totalOrders: number;
   byStatus: Record<OrderStatus, number>;
   revenue: number;
-} => {
-  const completedOrders = Orders.filter(
-    (order) =>
-      order.status === "confirmed" ||
-      order.status === "shipped" ||
-      order.status === "delivered",
-  );
-
-  const revenue = completedOrders.reduce(
-    (total, order) =>
-      total +
-      order.items.reduce(
-        (sub, entity) => sub + entity.quantity * entity.unitPrice,
-        0,
-      ),
-    0,
-  );
-
-  const byStatus = {
-    pending: Orders.filter((o) => o.status === "pending").length,
-    confirmed: Orders.filter((o) => o.status === "confirmed").length,
-    shipped: Orders.filter((o) => o.status === "shipped").length,
-    delivered: Orders.filter((o) => o.status === "delivered").length,
-    cancelled: Orders.filter((o) => o.status === "cancelled").length,
-    return_requested: Orders.filter((o) => o.status === "return_requested")
-      .length,
-    returned: Orders.filter((o) => o.status === "returned").length,
-  };
-
-  return { totalOrders: Orders.length, byStatus, revenue };
-};
+}> => {
+  return await getOrderReportFromId();
+}

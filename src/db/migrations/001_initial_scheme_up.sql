@@ -8,8 +8,9 @@ CREATE TABLE orders (
 CREATE TABLE order_items (
     order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
     product_id VARCHAR(255) NOT NULL,
-    quantity INTEGER NOT NULL CHECK (quantity > 0),
-    unit_price DECIMAL(10, 2) NOT NULL CHECK (unit_price > 0),
+    name VARCHAR(255) NOT NULL,
+    quantity INT NOT NULL,
+    unit_price NUMERIC(10, 2) NOT NULL,
     PRIMARY KEY (order_id, product_id)
 );
 
