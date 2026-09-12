@@ -4,9 +4,9 @@ A backend API for managing the full lifecycle of an order, from creation through
 
 ## **Tech Stack**
 
-* Node.js
-* TypeScript
-* Express
+- Node.js
+- TypeScript
+- Express
 
 ## **Project Structure**
 
@@ -40,11 +40,11 @@ src/
 
 The app follows a layered **store → service → route** architecture:
 
-* **store**: Holds application data in in-memory arrays and handles ID generation.
-* **service**: Contains business rules, validation, and state transitions. Services interact with the stores.
-* **route**: Contains Express request handlers and delegates business logic to services.
-* **middleware**: Contains reusable Express middleware, such as generic request-body validation.
-* **validation**: Contains runtime type guards used to validate incoming request data.
+- **store**: Holds application data in in-memory arrays and handles ID generation.
+- **service**: Contains business rules, validation, and state transitions. Services interact with the stores.
+- **route**: Contains Express request handlers and delegates business logic to services.
+- **middleware**: Contains reusable Express middleware, such as generic request-body validation.
+- **validation**: Contains runtime type guards used to validate incoming request data.
 
 ## **Runtime Request Validation**
 
@@ -147,22 +147,22 @@ The refund completion logic updates these related resources in sequence and only
 
 ## **Validation Rules**
 
-* The request body for creating an order must contain a valid `customerName` and `items` array.
-* An order with an empty cart is rejected.
-* An item with a non-positive quantity or unit price is rejected.
-* Any route parameter expected to be numeric is validated before being converted with `Number(...)`.
-* A status change must use one of the seven valid `OrderStatus` values.
-* An order status transition must exist in the order state machine.
-* A return request is only accepted for orders in the `delivered` or `return_requested` state.
-* A return request is rejected after 30 days from the order creation date.
-* A return request must include a `reason`, and the reason must be a string.
-* A request against an order ID that does not exist is rejected.
-* A return request against a product ID that is not present in the order is rejected.
-* A refund amount must be provided as a number.
-* A refund amount must be greater than `0`.
-* A refund can only be requested for a return request in the `received` state.
-* A refund can only be completed while it is in the `pending` state.
-* A refund completion outcome must be either `completed` or `failed`.
+- The request body for creating an order must contain a valid `customerName` and `items` array.
+- An order with an empty cart is rejected.
+- An item with a non-positive quantity or unit price is rejected.
+- Any route parameter expected to be numeric is validated before being converted with `Number(...)`.
+- A status change must use one of the seven valid `OrderStatus` values.
+- An order status transition must exist in the order state machine.
+- A return request is only accepted for orders in the `delivered` or `return_requested` state.
+- A return request is rejected after 30 days from the order creation date.
+- A return request must include a `reason`, and the reason must be a string.
+- A request against an order ID that does not exist is rejected.
+- A return request against a product ID that is not present in the order is rejected.
+- A refund amount must be provided as a number.
+- A refund amount must be greater than `0`.
+- A refund can only be requested for a return request in the `received` state.
+- A refund can only be completed while it is in the `pending` state.
+- A refund completion outcome must be either `completed` or `failed`.
 
 Validation functions return typed results such as `{ success: true, ... }` or `{ success: false, reason }` instead of throwing, allowing the API layer to handle service results consistently.
 
@@ -360,6 +360,6 @@ The current stores are in-memory and are intentionally structured so they can be
 
 Computer Science student, University of Ilorin
 
-* GitHub: [github.com/Afhit-01](https://github.com/Afhit-01)
-* LinkedIn: [fatihu-a-abdulganiyu](https://linkedin.com/in/fatihu-a-abdulganiyu-18115838a)
-* Email: [abdulganiyufatihu5.0@gmail.com](mailto:abdulganiyufatihu5.0@gmail.com)
+- GitHub: [github.com/Afhit-01](https://github.com/Afhit-01)
+- LinkedIn: [fatihu-a-abdulganiyu](https://linkedin.com/in/fatihu-a-abdulganiyu-18115838a)
+- Email: [abdulganiyufatihu5.0@gmail.com](mailto:abdulganiyufatihu5.0@gmail.com)
