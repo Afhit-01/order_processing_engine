@@ -160,7 +160,7 @@ export const getOrderReportFromId = async (): Promise<{
       totalOrders += count;
     }
 
-    const revenueQuery = `culate revenue directly in SQL for completed 
+    const revenueQuery = `
       SELECT SUM(oi.quantity * oi.unit_price) as total_revenue
       FROM order_items oi
       JOIN orders o ON oi.order_id = o.id
