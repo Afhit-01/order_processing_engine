@@ -1,6 +1,5 @@
-import { getOrderByIdFromDb, Orders } from "../store/orderStore.js";
-import { ReturnRequests, getNextReturnId, getReturnByIdFromDB, insertReturnRequest, updateReturnRequestInDB } from "../store/returnStore.js";
-import { createReturnRequest } from "../returnLogic.js";
+import { getOrderByIdFromDb } from "../store/orderStore.js";
+import { getReturnByIdFromDB, insertReturnRequest, updateReturnRequestInDB } from "../store/returnStore.js";
 import { updateOrderStatus } from "./orderService.js";
 import type { Refund, ReturnStatus } from "../types.js";
 
@@ -154,11 +153,10 @@ export const receiveReturn = async (
   return { success: true };
 };
 
-// to be sorted
-export const markReturnRefunded = (
+export const markReturnRefunded = async (
   returnId: string,
-): { success: true } | { success: false; reason: string } => {
-  const returnRequest = ReturnRequests.find((r) => r.id === returnId);
+): Promise<{ success: true } | { success: false; reason: string }> => {
+  const returnRequest = await getReturnByIdFromDB(returnId)
 
   if (!returnRequest) {
     return {
@@ -177,6 +175,6 @@ export const markReturnRefunded = (
     };
   }
 
-  returnRequest.status = "refunded";
+  await updateReturnRequestInDB(returnId, "refunded")
   return { success: true };
 };
