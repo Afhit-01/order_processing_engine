@@ -102,12 +102,10 @@ export const reviewReturn = async (
   return { success: true };
 };
 
-// to be sorted
-
-export const markReturnInTransit = (
+export const markReturnInTransit = async (
   returnId: string,
-): { success: true } | { success: false; reason: string } => {
-  const returnRequest = ReturnRequests.find((r) => r.id === returnId);
+): Promise<{ success: true } | { success: false; reason: string }> => {
+  const returnRequest = await getReturnByIdFromDB(returnId)
 
   if (!returnRequest) {
     return {
@@ -126,9 +124,11 @@ export const markReturnInTransit = (
     };
   }
 
-  returnRequest.status = "in_transit";
+  await updateReturnRequestInDB(returnId, "in_transit")
   return { success: true };
 };
+
+// to be sorted
 
 export const receiveReturn = (
   returnId: string,
