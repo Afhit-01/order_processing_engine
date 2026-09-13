@@ -56,8 +56,6 @@ export const updateOrderStatusInDb = async (
   try {
     const updateQuery = `UPDATE orders SET status = $1 WHERE id = $2;`;
     await client.query(updateQuery, [newStatus, id]);
-  } catch (error) {
-    throw error;
   } finally {
     client.release();
   }
@@ -92,8 +90,6 @@ export const getOrderByIdFromDb = async (id: string): Promise<Order | null> => {
     };
 
     return order;
-  } catch (error) {
-    throw error;
   } finally {
     client.release();
   }
@@ -126,8 +122,6 @@ export const getOrdersByStatusFromDb = async (status: OrderStatus): Promise<Orde
     }
 
     return orders;
-  } catch (error) {
-    throw error;
   } finally {
     client.release();
   }

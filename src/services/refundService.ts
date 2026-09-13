@@ -1,19 +1,19 @@
-import { getNextRefundId, Refunds } from "../store/refundStore.js";
-import { ReturnRequests } from "../store/returnStore.js";
+import { getReturnByIdFromDB } from "../store/returnStore.js";
+import { getRefundByIdFromDB, insertRefund, updateRefundStatusInDb } from "../store/refundStore.js";
 import type { Refund } from "../types.js";
 import { updateOrderStatus } from "./orderService.js";
 import { markReturnRefunded } from "./returnService.js";
 
-export const processRefund = (
+export const processRefund = async (
   returnId: string,
   amount: number,
-): { success: true; refund: Refund } | { success: false; reason: string } => {
-  const returnRequest = ReturnRequests.find((r) => r.id === returnId);
+): Promise<{ success: true; refund: Refund } | { success: false; reason: string }> => {
+  const returnRequest = await getReturnByIdFromDB(returnId);
 
   if (!returnRequest) {
     return {
       success: false,
-      reason: `Return request with id ${returnId} does not exit`,
+      reason: `Return request with id ${returnId} does not exist`, // fixed typo here
     };
   }
 
@@ -31,26 +31,21 @@ export const processRefund = (
     };
   }
 
-  const refund: Refund = {
-    id: getNextRefundId(),
-    returnRequestId: returnRequest.id,
-    orderId: returnRequest.orderId,
-    productId: returnRequest.productId,
+  const refund = await insertRefund(
+    returnRequest.id,
+    returnRequest.orderId,
+    returnRequest.productId,
     amount,
-    status: "pending",
-    requestedAt: new Date().toISOString(),
-    completedAt: null,
-  };
+  );
 
-  Refunds.push(refund);
   return { success: true, refund };
 };
 
-export const completeRefund = (
+export const completeRefund = async (
   refundId: string,
   outcome: "completed" | "failed",
-): { success: true } | { success: false; reason: string } => {
-  const refund = Refunds.find((r) => r.id === refundId);
+): Promise<{ success: true } | { success: false; reason: string }> => {
+  const refund = await getRefundByIdFromDB(refundId);
 
   if (!refund) {
     return {
@@ -67,24 +62,24 @@ export const completeRefund = (
   }
 
   if (outcome === "failed") {
-    refund.status = "failed";
+    await updateRefundStatusInDb(refundId, "failed");
     return { success: true };
   }
 
-  const returnResult = markReturnRefunded(refund.returnRequestId);
+  const returnResult = await markReturnRefunded(refund.returnRequestId);
 
   if (!returnResult.success) {
     return returnResult;
   }
 
-  const orderResult = updateOrderStatus(refund.orderId, "returned");
+  const orderResult = await updateOrderStatus(refund.orderId, "returned");
 
   if (!orderResult.success) {
     return orderResult;
   }
 
-  refund.status = "completed";
-  refund.completedAt = new Date().toISOString();
+  const completedTime = new Date().toISOString();
+  await updateRefundStatusInDb(refundId, "completed", completedTime);
 
   return { success: true };
 };

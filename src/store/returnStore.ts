@@ -34,8 +34,6 @@ export const insertReturnRequest = async (
       status: row.status,
       requestedAt: row.created_at,
     };
-  } catch (error) {
-    throw error;
   } finally {
     client.release();
   }
@@ -67,8 +65,6 @@ export const getReturnByIdFromDB = async (
       status: row.status,
       requestedAt: row.created_at,
     };
-  } catch (error) {
-    throw error;
   } finally {
     client.release();
   }
@@ -81,8 +77,6 @@ export const updateReturnRequestInDB = async (id: string, decision: string) => {
     const query = `
         UPDATE return_requests SET status = $1 WHERE id = $2;`;
     await client.query(query, [decision, id]);
-  } catch (error) {
-    throw error;
   } finally {
     client.release();
   }
@@ -113,8 +107,6 @@ export const getReturnByOrderAndProductFromDb = async (
       status: row.status as ReturnStatus,
       requestedAt: row.created_at,
     };
-  } catch (error) {
-    throw error;
   } finally {
     client.release();
   }
