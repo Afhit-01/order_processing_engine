@@ -2,11 +2,12 @@
   "name": "order_processing_engine",
   "version": "1.0.0",
   "description": "Order processing API with order, return, and refund workflows",
-  "main": "server.js",
+  "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/server.ts",
-    "migrate": "tsx src/db/migrate.ts",
+    "migrate:up": "tsx src/db/migrate.ts up",
+    "migrate:down": "tsx src/db/migrate.ts down",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -31,7 +32,6 @@
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "fs": "^0.0.1-security",
     "pg": "^8.23.0"
   }
 }
