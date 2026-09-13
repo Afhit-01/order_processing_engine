@@ -24,7 +24,7 @@ const runMigration = async () => {
     console.log(`Running migration: ${fileName}...`);
     await pool.query(sqlFile);
     console.log(`Migration ${direction} was successfully run!`);
-    
+
     process.exit(0);
   } catch (error) {
     console.error(`Migration ${direction} failed:`, error);

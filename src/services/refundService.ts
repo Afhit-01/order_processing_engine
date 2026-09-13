@@ -1,5 +1,9 @@
 import { getReturnByIdFromDB } from "../store/returnStore.js";
-import { getRefundByIdFromDB, insertRefund, updateRefundStatusInDb } from "../store/refundStore.js";
+import {
+  getRefundByIdFromDB,
+  insertRefund,
+  updateRefundStatusInDb,
+} from "../store/refundStore.js";
 import type { Refund } from "../types.js";
 import { updateOrderStatus } from "./orderService.js";
 import { markReturnRefunded } from "./returnService.js";
@@ -7,7 +11,9 @@ import { markReturnRefunded } from "./returnService.js";
 export const processRefund = async (
   returnId: string,
   amount: number,
-): Promise<{ success: true; refund: Refund } | { success: false; reason: string }> => {
+): Promise<
+  { success: true; refund: Refund } | { success: false; reason: string }
+> => {
   const returnRequest = await getReturnByIdFromDB(returnId);
 
   if (!returnRequest) {

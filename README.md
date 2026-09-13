@@ -181,16 +181,16 @@ Validation functions return typed results such as `{ success: true, ... }` or `{
 
 ### **Orders**
 
-| Method   | Route                     | Behavior                                     |
-| -------- | ------------------------- | -------------------------------------------- |
-| `GET`    | `/`                       | Root health check                           |
-| `POST`   | `/orders`                 | Create a new order                           |
+| Method   | Route                     | Behavior                                         |
+| -------- | ------------------------- | ------------------------------------------------ |
+| `GET`    | `/`                       | Root health check                                |
+| `POST`   | `/orders`                 | Create a new order                               |
 | `GET`    | `/orders?status=<status>` | List orders filtered by status (status required) |
-| `GET`    | `/orders/:orderId`        | Get a single order by ID                     |
-| `GET`    | `/orders/report`          | Get revenue and status breakdown             |
-| `GET`    | `/orders/:orderId/total`  | Compute an order's total                     |
-| `PATCH`  | `/orders/:orderId/status` | Transition an order's status                 |
-| `DELETE` | `/orders/:orderId`        | Cancel an order without hard deletion        |
+| `GET`    | `/orders/:orderId`        | Get a single order by ID                         |
+| `GET`    | `/orders/report`          | Get revenue and status breakdown                 |
+| `GET`    | `/orders/:orderId/total`  | Compute an order's total                         |
+| `PATCH`  | `/orders/:orderId/status` | Transition an order's status                     |
+| `DELETE` | `/orders/:orderId`        | Cancel an order without hard deletion            |
 
 ### **Returns**
 
@@ -389,12 +389,12 @@ npm run migrate
 
 ### Schema
 
-| Table           | Key Columns                                                                      |
-| --------------- | -------------------------------------------------------------------------------- |
-| `orders`        | `id` (UUID), `customer_name`, `status`, `created_at`                             |
-| `order_items`   | `order_id` (FK), `product_id`, `name`, `quantity`, `unit_price`                  |
-| `return_requests` | `id` (UUID), `order_id` (FK), `product_id`, `quantity`, `reason`, `status`, `created_at` |
-| `refunds`       | `id` (UUID), `return_request_id` (FK), `order_id`, `product_id`, `amount`, `status`, `requested_at`, `completed_at` |
+| Table             | Key Columns                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `orders`          | `id` (UUID), `customer_name`, `status`, `created_at`                                                                |
+| `order_items`     | `order_id` (FK), `product_id`, `name`, `quantity`, `unit_price`                                                     |
+| `return_requests` | `id` (UUID), `order_id` (FK), `product_id`, `quantity`, `reason`, `status`, `created_at`                            |
+| `refunds`         | `id` (UUID), `return_request_id` (FK), `order_id`, `product_id`, `amount`, `status`, `requested_at`, `completed_at` |
 
 ## **Architecture**
 

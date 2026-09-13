@@ -1,5 +1,11 @@
 import type { Order, OrderItem, OrderStatus } from "../types.js";
-import { getOrderByIdFromDb, getOrderReportFromId, getOrdersByStatusFromDb, insertOrder, updateOrderStatusInDb } from "../store/orderStore.js";
+import {
+  getOrderByIdFromDb,
+  getOrderReportFromId,
+  getOrdersByStatusFromDb,
+  insertOrder,
+  updateOrderStatusInDb,
+} from "../store/orderStore.js";
 
 export const validTransitions: Record<OrderStatus, OrderStatus[]> = {
   pending: ["confirmed", "cancelled"],
@@ -14,7 +20,9 @@ export const validTransitions: Record<OrderStatus, OrderStatus[]> = {
 export const createOrder = async (
   customerName: string,
   items: OrderItem[],
-): Promise<{ success: true; order: Order } | { success: false; reason: string }> => {
+): Promise<
+  { success: true; order: Order } | { success: false; reason: string }
+> => {
   if (items.length === 0) {
     return { success: false, reason: "Order cart cannot be empty" };
   }
@@ -38,7 +46,6 @@ export const updateOrderStatus = async (
   id: string,
   newStatus: OrderStatus,
 ): Promise<{ success: true } | { success: false; reason: string }> => {
-
   const order = await getOrderByIdFromDb(id);
 
   if (!order) {
@@ -59,13 +66,13 @@ export const updateOrderStatus = async (
 };
 
 export const getOrderById = async (id: string): Promise<Order | null> => {
-  const order = await getOrderByIdFromDb(id)
+  const order = await getOrderByIdFromDb(id);
   return order || null;
 };
 
 export const getOrderTotal = async (id: string): Promise<number | null> => {
   const order = await getOrderByIdFromDb(id);
-  
+
   if (!order) return null;
 
   return order.items.reduce(
@@ -74,7 +81,9 @@ export const getOrderTotal = async (id: string): Promise<number | null> => {
   );
 };
 
-export const getOrdersByStatus = async (status: OrderStatus): Promise<Order[]> => {
+export const getOrdersByStatus = async (
+  status: OrderStatus,
+): Promise<Order[]> => {
   return await getOrdersByStatusFromDb(status);
 };
 
@@ -101,4 +110,4 @@ export const getOrderReport = async (): Promise<{
   revenue: number;
 }> => {
   return await getOrderReportFromId();
-}
+};

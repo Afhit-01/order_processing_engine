@@ -46,7 +46,8 @@ router.patch(
         reason,
       );
 
-      if (!result.success) return res.status(400).json({ error: result.reason });
+      if (!result.success)
+        return res.status(400).json({ error: result.reason });
       return res.status(200).json({ message: result.message });
     } catch (error) {
       return res.status(500).json({ error: "Internal server error" });
@@ -54,169 +55,196 @@ router.patch(
   },
 );
 
-router.patch("/:orderId/:productId/review", async (req: Request, res: Response) => {
-  try {
-    const { orderId, productId } = req.params;
+router.patch(
+  "/:orderId/:productId/review",
+  async (req: Request, res: Response) => {
+    try {
+      const { orderId, productId } = req.params;
 
-    if (!isValidParam(orderId)) {
-      return res.status(400).json({ error: "orderId must be provided" });
-    }
-    if (!isValidParam(productId)) {
-      return res.status(400).json({ error: "productId must be provided" });
-    }
+      if (!isValidParam(orderId)) {
+        return res.status(400).json({ error: "orderId must be provided" });
+      }
+      if (!isValidParam(productId)) {
+        return res.status(400).json({ error: "productId must be provided" });
+      }
 
-    const { review } = req.body;
+      const { review } = req.body;
 
-    if (!review) {
-      return res.status(400).json({ error: "Kindly provide a review decision" });
-    }
-    if (Array.isArray(review)) {
-      return res.status(400).json({ error: "review must be a string" });
-    }
-    if (review !== "approved" && review !== "rejected") {
-      return res.status(400).json({
-        error: "review must be either 'approved' or 'rejected'",
+      if (!review) {
+        return res
+          .status(400)
+          .json({ error: "Kindly provide a review decision" });
+      }
+      if (Array.isArray(review)) {
+        return res.status(400).json({ error: "review must be a string" });
+      }
+      if (review !== "approved" && review !== "rejected") {
+        return res.status(400).json({
+          error: "review must be either 'approved' or 'rejected'",
+        });
+      }
+
+      const item = await getReturnByOrderAndProductFromDb(orderId, productId);
+
+      if (!item) {
+        return res.status(404).json({
+          error:
+            "Request with the provided IDs cannot be found. Kindly check if there was a mismatch.",
+        });
+      }
+
+      const result = await reviewReturn(item.id, review);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.reason });
+      }
+
+      // Refresh the item to return the updated status
+      const updatedItem = await getReturnByOrderAndProductFromDb(
+        orderId,
+        productId,
+      );
+
+      return res.status(200).json({
+        message: `Return request ${review} successfully`,
+        returnRequest: updatedItem,
       });
+    } catch (error) {
+      return res.status(500).json({ error: "Internal server error" });
     }
+  },
+);
 
-    const item = await getReturnByOrderAndProductFromDb(orderId, productId);
+router.patch(
+  "/:orderId/:productId/ship",
+  async (req: Request, res: Response) => {
+    try {
+      const { orderId, productId } = req.params;
 
-    if (!item) {
-      return res.status(404).json({
-        error: "Request with the provided IDs cannot be found. Kindly check if there was a mismatch.",
+      if (!isValidParam(orderId)) {
+        return res.status(400).json({ error: "orderId must be provided" });
+      }
+      if (!isValidParam(productId)) {
+        return res.status(400).json({ error: "productId must be provided" });
+      }
+
+      const item = await getReturnByOrderAndProductFromDb(orderId, productId);
+
+      if (!item) {
+        return res.status(404).json({
+          error:
+            "Request with the provided IDs cannot be found. Kindly check if there was a mismatch.",
+        });
+      }
+
+      const result = await markReturnInTransit(item.id);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.reason });
+      }
+
+      const updatedItem = await getReturnByOrderAndProductFromDb(
+        orderId,
+        productId,
+      );
+
+      return res.status(200).json({
+        message: "Return marked as in transit successfully",
+        returnRequest: updatedItem,
       });
+    } catch (error) {
+      return res.status(500).json({ error: "Internal server error" });
     }
+  },
+);
 
-    const result = await reviewReturn(item.id, review);
+router.patch(
+  "/:orderId/:productId/receive",
+  async (req: Request, res: Response) => {
+    try {
+      const { orderId, productId } = req.params;
 
-    if (!result.success) {
-      return res.status(400).json({ error: result.reason });
-    }
+      if (!isValidParam(orderId)) {
+        return res.status(400).json({ error: "orderId must be provided" });
+      }
+      if (!isValidParam(productId)) {
+        return res.status(400).json({ error: "productId must be provided" });
+      }
 
-    // Refresh the item to return the updated status
-    const updatedItem = await getReturnByOrderAndProductFromDb(orderId, productId);
+      const item = await getReturnByOrderAndProductFromDb(orderId, productId);
 
-    return res.status(200).json({
-      message: `Return request ${review} successfully`,
-      returnRequest: updatedItem,
-    });
-  } catch (error) {
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
+      if (!item) {
+        return res.status(404).json({
+          error:
+            "Request with the provided IDs cannot be found. Kindly check if there was a mismatch.",
+        });
+      }
 
-router.patch("/:orderId/:productId/ship", async (req: Request, res: Response) => {
-  try {
-    const { orderId, productId } = req.params;
+      const result = await receiveReturn(item.id);
 
-    if (!isValidParam(orderId)) {
-      return res.status(400).json({ error: "orderId must be provided" });
-    }
-    if (!isValidParam(productId)) {
-      return res.status(400).json({ error: "productId must be provided" });
-    }
+      if (!result.success) {
+        return res.status(400).json({ error: result.reason });
+      }
 
-    const item = await getReturnByOrderAndProductFromDb(orderId, productId);
+      const updatedItem = await getReturnByOrderAndProductFromDb(
+        orderId,
+        productId,
+      );
 
-    if (!item) {
-      return res.status(404).json({
-        error: "Request with the provided IDs cannot be found. Kindly check if there was a mismatch.",
+      return res.status(200).json({
+        message: "Return received successfully",
+        returnRequest: updatedItem,
       });
+    } catch (error) {
+      return res.status(500).json({ error: "Internal server error" });
     }
+  },
+);
 
-    const result = await markReturnInTransit(item.id);
+router.post(
+  "/:orderId/:productId/refund",
+  async (req: Request, res: Response) => {
+    try {
+      const { orderId, productId } = req.params;
 
-    if (!result.success) {
-      return res.status(400).json({ error: result.reason });
-    }
+      if (!isValidParam(orderId)) {
+        return res.status(400).json({ error: "orderId must be provided" });
+      }
+      if (!isValidParam(productId)) {
+        return res.status(400).json({ error: "productId must be provided" });
+      }
 
-    const updatedItem = await getReturnByOrderAndProductFromDb(orderId, productId);
+      const { refundAmount } = req.body;
 
-    return res.status(200).json({
-      message: "Return marked as in transit successfully",
-      returnRequest: updatedItem,
-    });
-  } catch (error) {
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
+      if (typeof refundAmount !== "number") {
+        return res.status(400).json({
+          error: "refundAmount must be a number",
+        });
+      }
 
-router.patch("/:orderId/:productId/receive", async (req: Request, res: Response) => {
-  try {
-    const { orderId, productId } = req.params;
+      const item = await getReturnByOrderAndProductFromDb(orderId, productId);
 
-    if (!isValidParam(orderId)) {
-      return res.status(400).json({ error: "orderId must be provided" });
-    }
-    if (!isValidParam(productId)) {
-      return res.status(400).json({ error: "productId must be provided" });
-    }
+      if (!item) {
+        return res.status(404).json({
+          error:
+            "Request with the provided IDs cannot be found. Kindly check if there was a mismatch.",
+        });
+      }
 
-    const item = await getReturnByOrderAndProductFromDb(orderId, productId);
+      const result = await processRefund(item.id, refundAmount);
 
-    if (!item) {
-      return res.status(404).json({
-        error: "Request with the provided IDs cannot be found. Kindly check if there was a mismatch.",
+      if (!result.success) {
+        return res.status(400).json({ error: result.reason });
+      }
+
+      return res.status(200).json({
+        message: "Refund request created successfully",
+        refund: result.refund,
       });
+    } catch (error) {
+      return res.status(500).json({ error: "Internal server error" });
     }
-
-    const result = await receiveReturn(item.id);
-
-    if (!result.success) {
-      return res.status(400).json({ error: result.reason });
-    }
-
-    const updatedItem = await getReturnByOrderAndProductFromDb(orderId, productId);
-
-    return res.status(200).json({
-      message: "Return received successfully",
-      returnRequest: updatedItem,
-    });
-  } catch (error) {
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-router.post("/:orderId/:productId/refund", async (req: Request, res: Response) => {
-  try {
-    const { orderId, productId } = req.params;
-
-    if (!isValidParam(orderId)) {
-      return res.status(400).json({ error: "orderId must be provided" });
-    }
-    if (!isValidParam(productId)) {
-      return res.status(400).json({ error: "productId must be provided" });
-    }
-
-    const { refundAmount } = req.body;
-
-    if (typeof refundAmount !== "number") {
-      return res.status(400).json({
-        error: "refundAmount must be a number",
-      });
-    }
-
-    const item = await getReturnByOrderAndProductFromDb(orderId, productId);
-
-    if (!item) {
-      return res.status(404).json({
-        error: "Request with the provided IDs cannot be found. Kindly check if there was a mismatch.",
-      });
-    }
-
-    const result = await processRefund(item.id, refundAmount);
-
-    if (!result.success) {
-      return res.status(400).json({ error: result.reason });
-    }
-
-    return res.status(200).json({
-      message: "Refund request created successfully",
-      refund: result.refund, 
-    });
-  } catch (error) {
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
+  },
+);
 
 export default router;

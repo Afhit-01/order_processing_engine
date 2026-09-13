@@ -95,7 +95,9 @@ export const getOrderByIdFromDb = async (id: string): Promise<Order | null> => {
   }
 };
 
-export const getOrdersByStatusFromDb = async (status: OrderStatus): Promise<Order[]> => {
+export const getOrdersByStatusFromDb = async (
+  status: OrderStatus,
+): Promise<Order[]> => {
   const client = await pool.connect();
   try {
     const orderQuery = `SELECT id, customer_name, status, created_at FROM orders WHERE status = $1;`;
@@ -134,7 +136,6 @@ export const getOrderReportFromId = async (): Promise<{
 }> => {
   const client = await pool.connect();
   try {
-
     const statusCountQuery = `
       SELECT status, COUNT(*) as count 
       FROM orders 
