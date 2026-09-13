@@ -1,95 +1,82 @@
-# **Order Processing Engine**
+# Order Processing Engine
 
-A backend API for managing the full lifecycle of an order, from creation through confirmation, shipping, delivery, return requests, and refunds. Built with validated state transitions, business rule enforcement, return-request handling, refund processing, and revenue reporting. Uses PostgreSQL for persistent storage.
+A backend API for managing the full lifecycle of an order, from creation through confirmation, shipping, delivery, return requests, and refunds. Built with validated state transitions, business rule enforcement, and revenue reporting, backed by PostgreSQL.
 
-## **Tech Stack**
+## Tech Stack
 
 - Node.js
 - TypeScript
 - Express
-- PostgreSQL (`pg`)
+- PostgreSQL
 
-## **Project Structure**
+## Project Structure
 
-```text
+```
 src/
-├── server.ts                    Express app setup and router mounting
-├── types.ts                     Shared type definitions
-├── returnLogic.ts               Return-request factory function
-│
-├── db/
-│   ├── client.ts                PostgreSQL connection pool
-│   ├── migrate.ts               Runs SQL migration
-│   └── migrations/
-│       ├── 001_initial_scheme_up.sql
-│       └── 001_initial_scheme_down.sql
-│
-├── store/
-│   ├── orderStore.ts            PostgreSQL order/order_items queries and ID generator
-│   ├── returnStore.ts           PostgreSQL return_requests queries and ID generator
-│   └── refundStore.ts           In-memory refund array and ID generator
-│
-├── services/
-│   ├── orderService.ts          Order lifecycle logic, state transitions, validation
-│   ├── returnService.ts         Return-request business rules and transitions
-│   └── refundService.ts         Refund processing and completion logic
-│
-├── routes/
-│   ├── ordersRouter.ts          /orders route handlers
-│   ├── returnsRouter.ts         /return route handlers
-│   └── refundsRouter.ts         /refunds route handlers
-│
-├── middleware/
-│   └── validateBody.ts          Generic request body validation middleware
-│
-└── validation/
-    └── orderValidation.ts        Runtime type guards for request bodies and route params
+  server.ts                    Express app setup and router mounting
+  types.ts                     Shared type definitions
+  db/
+    client.ts                  PostgreSQL connection pool
+    migrate.ts                 Migration runner (up / down)
+    migrations/                001_initial_scheme_up.sql, 001_initial_scheme_down.sql
+  store/
+    orderStore.ts               Order and order item queries
+    returnStore.ts               Return request queries
+    refundStore.ts               Refund queries
+  services/
+    orderService.ts             Order lifecycle logic, state transitions, validation
+    returnService.ts             Return-request lifecycle: create, review, ship, receive, mark refunded
+    refundService.ts             Refund lifecycle: process, complete or fail
+  routes/
+    ordersRouter.ts              /orders route handlers
+    returnsRouter.ts             /return route handlers
+    refundsRouter.ts             /refunds route handlers
+  middleware/
+    validateBody.ts              Generic body-validation middleware factory
+  validation/
+    orderValidation.ts           Runtime type guards for request bodies and route params
 ```
 
-The app follows a layered **store → service → route** architecture:
+The app is layered store &rarr; service &rarr; route:
 
-- **store**: Holds application data in PostgreSQL (and in-memory for refunds) and handles ID generation.
-- **service**: Contains business rules, validation, and state transitions. Services interact with the stores.
-- **route**: Contains Express request handlers and delegates business logic to services.
-- **middleware**: Contains reusable Express middleware, such as generic request-body validation.
-- **validation**: Contains runtime type guards used to validate incoming request data.
+- **store**: runs the actual SQL against Postgres. Nothing here makes a business decision.
+- **service**: holds business rules, transition tables, and validation, and calls into other services where one entity's lifecycle needs to trigger another's.
+- **route**: holds Express handlers, imports from service, mounted onto `app` in `server.ts`.
 
-## **Runtime Request Validation**
+## Persistence
 
-TypeScript types do not exist at runtime, so `req.body` and `req.params` are validated before values are passed into service functions.
+Order, order item, return request, and refund data now lives in PostgreSQL rather than in-memory arrays. Run migrations with:
 
-| Guard                  | Checks                                                                          |
-| ---------------------- | ------------------------------------------------------------------------------- |
-| `isCreateOrderPayload` | `customerName` is a string and `items` is an array of valid `OrderItem` objects |
-| `isValidStatus`        | The value is one of the seven valid `OrderStatus` strings                       |
-| `isNumericString`      | The value is a non-empty string that converts to a valid number                 |
-| `isValidParam`         | The value is a non-empty string                                                 |
+```
+npm run migrate:up
+npm run migrate:down
+```
 
-`isNumericString` guards the `quantity` route parameter that is passed into `Number(...)`, ensuring that invalid quantity values are rejected with a `400` response instead of silently becoming `NaN`.
+Connection is configured through a `DATABASE_URL` environment variable, loaded via `dotenv`.
 
-`isValidParam` guards route parameters like `orderId`, `productId`, and `refundId` that are used as string identifiers, ensuring they are provided as strings.
+Order creation runs inside a single database transaction: the order row and every one of its item rows are inserted together, so a failure partway through never leaves an order with missing items.
 
-Request-body values are also validated according to their expected runtime types. For example, `refundAmount` must be a JavaScript `number`, while `outcome` must be a string containing either `"completed"` or `"failed"`.
+## Identifiers
 
-The `validateBody` middleware wraps type guards to reject invalid request bodies with a `400` response before the route handler runs.
+Every row the engine generates uses a UUID primary key (`orders.id`, `return_requests.id`, `refunds.id`), generated by Postgres itself with `gen_random_uuid()` rather than by the application. This matters specifically because order and return lookups are public, unauthenticated routes: a sequential integer id would let anyone enumerate every order in the system by walking `/orders/1`, `/orders/2`, and so on. A UUID makes that impractical.
 
-## **Domain Model**
+`OrderItem.productId` is the one identifier that stays a plain string rather than becoming a UUID. It is supplied by whoever creates the order, not generated by this system, so there is nothing for the engine to enforce a UUID shape on. There is no product catalog in this project's scope, so `productId` is treated as an opaque, caller-provided value.
 
-| Type            | Description                                                                                             |
-| --------------- | ------------------------------------------------------------------------------------------------------- |
-| `OrderStatus`   | Union type: `pending`, `confirmed`, `shipped`, `delivered`, `cancelled`, `return_requested`, `returned` |
-| `ReturnStatus`  | Union type: `pending`, `approved`, `rejected`, `in_transit`, `received`, `refunded`                     |
-| `RefundStatus`  | Union type: `pending`, `completed`, `failed`                                                            |
-| `OrderItem`     | `productId`, `name`, `unitPrice`, `quantity`                                                            |
-| `Order`         | `id`, `customerName`, `items`, `status`, `createdAt`                                                    |
-| `ReturnRequest` | `id`, `orderId`, `productId`, `quantity`, `reason`, `requestedAt`, `approvedAt?`, `status`              |
-| `Refund`        | `id`, `returnRequestId`, `orderId`, `productId`, `amount`, `status`, `requestedAt`, `completedAt`       |
+## Domain Model
 
-## **Order State Machine**
+| Type | Description |
+|---|---|
+| `OrderStatus` | Union type: `pending`, `confirmed`, `shipped`, `delivered`, `cancelled`, `return_requested`, `returned` |
+| `OrderItem` | `productId`, `name`, `unitPrice`, `quantity` |
+| `Order` | `id`, `customerName`, `items`, `status`, `createdAt` |
+| `ReturnStatus` | Union type: `pending`, `approved`, `rejected`, `in_transit`, `received`, `refunded` |
+| `ReturnRequest` | `id`, `orderId`, `productId`, `quantity`, `reason`, `status`, `requestedAt` |
+| `RefundStatus` | Union type: `pending`, `completed`, `failed` |
+| `Refund` | `id`, `returnRequestId`, `orderId`, `productId`, `amount`, `status`, `requestedAt`, `completedAt` |
 
-An order can only move through its lifecycle using specific, validated transitions:
+## Order State Machine
 
-```text
+```
 pending          -> confirmed, cancelled
 confirmed        -> shipped, cancelled
 shipped          -> delivered
@@ -99,336 +86,146 @@ returned         -> (terminal, no further transitions)
 cancelled        -> (terminal, no further transitions)
 ```
 
+`return_requested -> delivered` exists specifically for a rejected return: since the item never left the customer, the order falls back to `delivered` rather than staying stuck. `return_requested -> returned` only fires once a refund actually completes, not when the return request is first filed.
+
 Any transition not listed above is rejected with a clear reason rather than silently applied or crashing the server.
 
-## **Return Request State Machine**
+## Return State Machine
 
-A return request has its own lifecycle:
-
-```text
-pending     -> approved, rejected
-approved    -> in_transit
-rejected    -> (terminal)
-in_transit  -> received
-received    -> refunded
-refunded    -> (terminal)
+```
+pending      -> approved, rejected
+approved     -> in_transit
+rejected     -> (terminal)
+in_transit   -> received
+received     -> refunded
+refunded     -> (terminal)
 ```
 
-The return workflow is:
+| Function | Transition | Touches `Order.status`? |
+|---|---|---|
+| `returnOrder` | creates the return at `pending` | yes, moves the order to `return_requested` |
+| `reviewReturn` | `pending -> approved` / `rejected` | yes, only on `rejected`: moves the order back to `delivered` |
+| `markReturnInTransit` | `approved -> in_transit` | no |
+| `receiveReturn` | `in_transit -> received` | no |
+| `markReturnRefunded` | `received -> refunded` | no by itself; called by `completeRefund`, see below |
 
-```text
-Submit return
-      ↓
-   pending
-      ↓
-Review return
-   ↙       ↘
-approved  rejected
-   ↓
-in_transit
-   ↓
-received
-   ↓
-refund requested
-   ↓
-  refunded
+## Refund Lifecycle
+
+```
+pending    -> completed, failed
+completed  -> (terminal)
+failed     -> (terminal, but a new refund can be processed again for the same return)
 ```
 
-## **Refund State Machine**
+| Function | What it does | Touches `ReturnRequest.status`? | Touches `Order.status`? |
+|---|---|---|---|
+| `processRefund` | creates a `Refund` at `pending` for a `received` return | no | no |
+| `completeRefund` (outcome `completed`) | moves the refund to `completed`, calls `markReturnRefunded`, then moves the order to `returned` | yes, to `refunded` | yes, to `returned` |
+| `completeRefund` (outcome `failed`) | moves the refund to `failed` only | no | no |
 
-A refund begins in the `pending` state after a refund request is created:
+A failed refund leaves the return request at `received`, so `processRefund` can be called again for a fresh retry.
 
-```text
-pending -> completed, failed
-completed -> (terminal)
-failed    -> (terminal)
-```
+## Validation Rules
 
-A refund can only be requested after the associated return has been received.
-
-When a refund is completed successfully:
-
-```text
-Return: received -> refunded
-Order:  return_requested -> returned
-Refund: pending -> completed
-```
-
-The refund completion logic updates these related resources in sequence and only marks the refund as completed after the return and order updates succeed.
-
-## **Validation Rules**
-
-- The request body for creating an order must contain a valid `customerName` and `items` array.
+- The request body for creating an order must be a valid `customerName` and `items` array, or the request is rejected before reaching business logic.
+- Route parameters that represent an id (`orderId`, `refundId`) must be present as a string. Route parameters that represent a genuine number rather than an id, such as `quantity` in the return-creation route, are checked separately.
 - An order with an empty cart is rejected.
-- An item with a non-positive quantity or unit price is rejected.
-- Any route parameter expected to be numeric is validated before being converted with `Number(...)`.
-- A status change must use one of the seven valid `OrderStatus` values.
-- An order status transition must exist in the order state machine.
-- A return request is only accepted for orders in the `delivered` state.
+- An item with a non positive quantity or unit price is rejected.
+- A status change must be one of the seven valid `OrderStatus` values, and must be in the transition table, or it is rejected.
+- A return request is only accepted for orders already in the `delivered` state.
 - A return request is rejected after 30 days from the order creation date.
-- A return request must include a `reason`, and the reason must be a string.
-- A request against an order ID that does not exist is rejected.
-- A return request against a product ID that is not present in the order is rejected.
-- A refund amount must be provided as a number.
-- A refund amount must be greater than `0`.
-- A refund can only be requested for a return request in the `received` state.
-- A refund can only be completed while it is in the `pending` state.
-- A refund completion outcome must be either `completed` or `failed`.
+- A return request must include a `reason`, and it must be a string.
+- A request against an order id that does not exist is rejected.
+- A return request against a product id not present in the order is rejected.
+- Every return-lifecycle and refund-lifecycle transition is checked against its own transition table before it's applied, the same pattern as order status changes.
+- A refund can only be processed for a return request at `received`, and the amount must be greater than 0.
 
-Validation functions return typed results such as `{ success: true, ... }` or `{ success: false, reason }` instead of throwing, allowing the API layer to handle service results consistently.
+Validation functions return a typed result (`{ success: true, ... }` or `{ success: false, reason }`) instead of throwing, so the API layer always has a clean result to work with.
 
-## **API Endpoints**
+## API Endpoints
 
-### **Orders**
+| Method | Route | Behavior |
+|---|---|---|
+| POST | `/orders` | Create a new order (validated) |
+| GET | `/orders?status=<status>` | Filter orders by status |
+| GET | `/orders/report` | Revenue and status breakdown |
+| GET | `/orders/:orderId` | Fetch a single order |
+| GET | `/orders/:orderId/total` | Compute an order's total |
+| PATCH | `/orders/:orderId/status` | Transition an order's status (validated) |
+| DELETE | `/orders/:orderId` | Cancel an order (not a hard delete) |
+| PATCH | `/return/:orderId/:productId/:quantity` | Submit a return request for a delivered order (body: `{ "reason": string }`) |
+| PATCH | `/return/:orderId/:productId/review` | Approve or reject a return request (body: `{ "review": "approved" \| "rejected" }`) |
+| PATCH | `/return/:orderId/:productId/ship` | Mark a return as in transit |
+| PATCH | `/return/:orderId/:productId/receive` | Mark a return as received |
+| POST | `/return/:orderId/:productId/refund` | Create a refund for a received return (body: `{ "refundAmount": number }`) |
+| PATCH | `/refunds/:refundId/complete` | Complete or fail a pending refund (body: `{ "outcome": "completed" \| "failed" }`) |
 
-| Method   | Route                     | Behavior                                         |
-| -------- | ------------------------- | ------------------------------------------------ |
-| `GET`    | `/`                       | Root health check                                |
-| `POST`   | `/orders`                 | Create a new order                               |
-| `GET`    | `/orders?status=<status>` | List orders filtered by status (status required) |
-| `GET`    | `/orders/:orderId`        | Get a single order by ID                         |
-| `GET`    | `/orders/report`          | Get revenue and status breakdown                 |
-| `GET`    | `/orders/:orderId/total`  | Compute an order's total                         |
-| `PATCH`  | `/orders/:orderId/status` | Transition an order's status                     |
-| `DELETE` | `/orders/:orderId`        | Cancel an order without hard deletion            |
+Not yet built: `GET /return` and `GET /return/:returnId` to list or inspect return requests directly, and `GET /refunds` and `GET /refunds/:refundId` for the same on refunds. Authentication, idempotency keys, invoice generation, and API documentation are planned but not yet implemented.
 
-### **Returns**
+## Getting Started
 
-| Method  | Route                                   | Behavior                                      |
-| ------- | --------------------------------------- | --------------------------------------------- |
-| `PATCH` | `/return/:orderId/:productId/:quantity` | Submit a return request                       |
-| `PATCH` | `/return/:orderId/:productId/review`    | Approve or reject a return request            |
-| `PATCH` | `/return/:orderId/:productId/ship`      | Mark an approved return as in transit         |
-| `PATCH` | `/return/:orderId/:productId/receive`   | Mark an in-transit return as received         |
-| `POST`  | `/return/:orderId/:productId/refund`    | Create a refund request for a received return |
-
-### **Refunds**
-
-| Method  | Route                         | Behavior                                     |
-| ------- | ----------------------------- | -------------------------------------------- |
-| `PATCH` | `/refunds/:refundId/complete` | Mark a pending refund as completed or failed |
-
-## **Getting Started**
-
-1. Clone the repository:
-
-```bash
+```
 git clone https://github.com/Afhit-01/order_processing_engine.git
 cd order_processing_engine
-```
-
-2. Set up your environment:
-
-```bash
-cp .env.example .env
-```
-
-Fill in `.env` with your PostgreSQL connection string:
-
-```
-DATABASE_URL=postgres://<username>:<password>@<host>:<port>/<database_name>
-```
-
-3. Install dependencies:
-
-```bash
 npm install
 ```
 
-4. Run database migrations:
+Create a `.env` file with your database connection string:
 
-```bash
-npm run migrate
+```
+DATABASE_URL=postgresql://user:password@localhost:5432/order_processing_engine
 ```
 
-5. Start the server:
+Run migrations, then start the server:
 
-```bash
+```
+npm run migrate:up
 npm run dev
 ```
 
-The server runs on:
+The server runs on `http://localhost:3000`.
 
-```text
-http://localhost:3000
+## Example Requests
+
+Create an order:
+
 ```
-
-## **Example Requests**
-
-### Create an order
-
-```bash
 curl -X POST http://localhost:3000/orders \
--H "Content-Type: application/json" \
--d '{
-  "customerName": "Ada Lovelace",
-  "items": [
-    {
-      "productId": "1",
-      "name": "Notebook",
-      "unitPrice": 5,
-      "quantity": 2
-    }
-  ]
-}'
+  -H "Content-Type: application/json" \
+  -d '{
+    "customerName": "Ada Lovelace",
+    "items": [{ "productId": "sku-1", "name": "Notebook", "unitPrice": 5, "quantity": 2 }]
+  }'
 ```
 
-### Get an order by ID
+Confirm the order:
 
-```bash
-curl http://localhost:3000/orders/1
+```
+curl -X PATCH http://localhost:3000/orders/<orderId>/status \
+  -H "Content-Type: application/json" \
+  -d '{ "status": "confirmed" }'
 ```
 
-### Filter orders by status
+Request a return after delivery:
 
-```bash
-curl "http://localhost:3000/orders?status=pending"
+```
+curl -X PATCH http://localhost:3000/return/<orderId>/sku-1/1 \
+  -H "Content-Type: application/json" \
+  -d '{ "reason": "Wrong size" }'
 ```
 
-### Confirm an order
+Get the revenue report:
 
-```bash
-curl -X PATCH http://localhost:3000/orders/1/status \
--H "Content-Type: application/json" \
--d '{ "status": "confirmed" }'
 ```
-
-### Request a return
-
-A return request requires the order to be eligible for return and the requested product to exist in the order.
-
-```bash
-curl -X PATCH http://localhost:3000/return/1/1/2 \
--H "Content-Type: application/json" \
--d '{ "reason": "Wrong size" }'
-```
-
-### Review a return
-
-Approve the return:
-
-```bash
-curl -X PATCH http://localhost:3000/return/1/1/review \
--H "Content-Type: application/json" \
--d '{ "review": "approved" }'
-```
-
-Reject the return:
-
-```bash
-curl -X PATCH http://localhost:3000/return/1/1/review \
--H "Content-Type: application/json" \
--d '{ "review": "rejected" }'
-```
-
-### Mark a return as in transit
-
-```bash
-curl -X PATCH http://localhost:3000/return/1/1/ship
-```
-
-### Receive a return
-
-```bash
-curl -X PATCH http://localhost:3000/return/1/1/receive
-```
-
-### Create a refund request
-
-The `refundAmount` must be a number.
-
-```bash
-curl -X POST http://localhost:3000/return/1/1/refund \
--H "Content-Type: application/json" \
--d '{ "refundAmount": 10 }'
-```
-
-A successful request creates the refund with a `pending` status.
-
-### Complete a refund
-
-Complete the refund:
-
-```bash
-curl -X PATCH http://localhost:3000/refunds/1/complete \
--H "Content-Type: application/json" \
--d '{ "outcome": "completed" }'
-```
-
-Mark the refund as failed:
-
-```bash
-curl -X PATCH http://localhost:3000/refunds/1/complete \
--H "Content-Type: application/json" \
--d '{ "outcome": "failed" }'
-```
-
-### Get the revenue report
-
-```bash
 curl http://localhost:3000/orders/report
 ```
 
-## **Database**
+## Author
 
-The project uses **PostgreSQL** for persistent storage. The connection is configured via the `DATABASE_URL` environment variable.
-
-### Setup
-
-1. Copy `.env.example` to `.env` and fill in your connection string:
-
-```
-DATABASE_URL=postgres://<username>:<password>@<host>:<port>/<database_name>
-```
-
-2. Run migrations to create the tables:
-
-```bash
-npm run migrate
-```
-
-### Schema
-
-| Table             | Key Columns                                                                                                         |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `orders`          | `id` (UUID), `customer_name`, `status`, `created_at`                                                                |
-| `order_items`     | `order_id` (FK), `product_id`, `name`, `quantity`, `unit_price`                                                     |
-| `return_requests` | `id` (UUID), `order_id` (FK), `product_id`, `quantity`, `reason`, `status`, `created_at`                            |
-| `refunds`         | `id` (UUID), `return_request_id` (FK), `order_id`, `product_id`, `amount`, `status`, `requested_at`, `completed_at` |
-
-## **Architecture**
-
-The project separates HTTP handling from business logic and data storage:
-
-```text
-                    ┌─────────────────┐
-                    │     Routes      │
-                    │ Express handlers│
-                    └────────┬────────┘
-                             │
-                             ▼
-                    ┌─────────────────┐
-                    │    Services     │
-                    │ Business logic  │
-                    └────────┬────────┘
-                             │
-                             ▼
-                    ┌─────────────────┐
-                     │      Stores     │
-                     │ PostgreSQL data │
-                    └─────────────────┘
-```
-
-This separation keeps the route layer focused on HTTP concerns while business rules remain inside the service layer.
-
-The stores currently use **PostgreSQL** via a connection pool (`src/db/client.ts`), with `refundStore.ts` remaining in-memory. The stores are structured so they can be replaced or extended as needed.
-
-## **Author**
-
-**Fatihu Ayomide Abdulganiyu (Afhit)**
-
+Fatihu Ayomide Abdulganiyu (Afhit)
 Computer Science student, University of Ilorin
 
 - GitHub: [github.com/Afhit-01](https://github.com/Afhit-01)
 - LinkedIn: [fatihu-a-abdulganiyu](https://linkedin.com/in/fatihu-a-abdulganiyu-18115838a)
-- Email: [abdulganiyufatihu5.0@gmail.com](mailto:abdulganiyufatihu5.0@gmail.com)
+- Email: abdulganiyufatihu5.0@gmail.com
+  
