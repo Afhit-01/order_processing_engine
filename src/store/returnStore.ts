@@ -1,5 +1,5 @@
 import pool from "../db/client.js";
-import type { ReturnRequest } from "../types.js";
+import type { ReturnRequest, ReturnStatus } from "../types.js";
 
 export const insertReturnRequest = async (
   orderId: string,
@@ -81,6 +81,38 @@ export const updateReturnRequestInDB = async (id: string, decision: string) => {
     const query = `
         UPDATE return_requests SET status = $1 WHERE id = $2;`;
     await client.query(query, [decision, id]);
+  } catch (error) {
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+export const getReturnByOrderAndProductFromDb = async (
+  orderId: string,
+  productId: string,
+): Promise<ReturnRequest | null> => {
+  const client = await pool.connect();
+  try {
+    const query = `
+      SELECT id, order_id, product_id, quantity, reason, status, created_at
+      FROM return_requests
+      WHERE order_id = $1 AND product_id = $2;
+    `;
+    const result = await client.query(query, [orderId, productId]);
+
+    if (result.rows.length === 0) return null;
+
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      orderId: row.order_id,
+      productId: row.product_id,
+      quantity: row.quantity,
+      reason: row.reason,
+      status: row.status as ReturnStatus,
+      requestedAt: row.created_at,
+    };
   } catch (error) {
     throw error;
   } finally {
