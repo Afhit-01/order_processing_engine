@@ -128,12 +128,10 @@ export const markReturnInTransit = async (
   return { success: true };
 };
 
-// to be sorted
-
-export const receiveReturn = (
+export const receiveReturn = async (
   returnId: string,
-): { success: true } | { success: false; reason: string } => {
-  const returnRequest = ReturnRequests.find((r) => r.id === returnId);
+): Promise<{ success: true } | { success: false; reason: string} >=> {
+  const returnRequest = await getReturnByIdFromDB(returnId)
 
   if (!returnRequest) {
     return {
@@ -152,10 +150,11 @@ export const receiveReturn = (
     };
   }
 
-  returnRequest.status = "received";
+  await updateReturnRequestInDB(returnId, "received")
   return { success: true };
 };
 
+// to be sorted
 export const markReturnRefunded = (
   returnId: string,
 ): { success: true } | { success: false; reason: string } => {
