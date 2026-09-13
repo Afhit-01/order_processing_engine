@@ -1,5 +1,5 @@
-import { Orders } from "../store/orderStore.js";
-import { ReturnRequests, getNextReturnId } from "../store/returnStore.js";
+import { getOrderByIdFromDb, Orders } from "../store/orderStore.js";
+import { ReturnRequests, getNextReturnId, getReturnByIdFromDB, insertReturnRequest, updateReturnRequestInDB } from "../store/returnStore.js";
 import { createReturnRequest } from "../returnLogic.js";
 import { updateOrderStatus } from "./orderService.js";
 import type { Refund, ReturnStatus } from "../types.js";
@@ -13,13 +13,13 @@ export const validReturnTransitions: Record<ReturnStatus, ReturnStatus[]> = {
   refunded: [],
 };
 
-export const returnOrder = (
+export const returnOrder = async (
   orderId: string,
   productId: string,
   quantity: number,
   reason: string,
-): { success: true; message: string } | { success: false; reason: string } => {
-  const order = Orders.find((order) => order.id === orderId);
+): Promise<{ success: true; message: string } | { success: false; reason: string }> => {
+  const order = await getOrderByIdFromDb(orderId)
   if (!order) {
     return { success: false, reason: `Order with id ${orderId} was not found` };
   }
@@ -55,17 +55,16 @@ export const returnOrder = (
     };
   }
 
-  const returnedItem = createReturnRequest(
-    getNextReturnId(),
-    orderId,
-    productId,
-    quantity,
-    reason,
-  );
-  ReturnRequests.push(returnedItem);
+  await insertReturnRequest(orderId,
+  productId,
+  quantity,
+  reason,)
 
-  const statusResult = updateOrderStatus(orderId, "return_requested");
-  if (!statusResult.success) return statusResult;
+  const statusResult = await updateOrderStatus(orderId, "return_requested");
+  if (!statusResult.success) return {
+    success: statusResult.success,
+    reason: statusResult.reason
+  }
 
   return {
     success: true,
@@ -73,11 +72,11 @@ export const returnOrder = (
   };
 };
 
-export const reviewReturn = (
+export const reviewReturn = async (
   returnId: string,
   decision: "approved" | "rejected",
-): { success: true } | { success: false; reason: string } => {
-  const returnRequest = ReturnRequests.find((r) => r.id === returnId);
+): Promise<{ success: true } | { success: false; reason: string }> => {
+  const returnRequest = await getReturnByIdFromDB(returnId);
 
   if (!returnRequest) {
     return {
@@ -86,8 +85,7 @@ export const reviewReturn = (
     };
   }
 
-  const isValid =
-    validReturnTransitions[returnRequest.status].includes(decision);
+  const isValid = validReturnTransitions[returnRequest.status].includes(decision);
 
   if (!isValid) {
     return {
@@ -96,13 +94,15 @@ export const reviewReturn = (
     };
   }
 
-  returnRequest.status = decision;
+  await updateReturnRequestInDB(returnId, decision)
   if (decision === "rejected") {
-    const orderResult = updateOrderStatus(returnRequest.orderId, "delivered");
+    const orderResult = await updateOrderStatus(returnRequest.orderId, "delivered");
     if (!orderResult.success) return orderResult;
   }
   return { success: true };
 };
+
+// to be sorted
 
 export const markReturnInTransit = (
   returnId: string,
