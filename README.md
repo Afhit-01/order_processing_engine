@@ -1,12 +1,13 @@
 # **Order Processing Engine**
 
-A backend API for managing the full lifecycle of an order, from creation through confirmation, shipping, delivery, return requests, and refunds. Built with validated state transitions, business rule enforcement, return-request handling, refund processing, and revenue reporting..
+A backend API for managing the full lifecycle of an order, from creation through confirmation, shipping, delivery, return requests, and refunds. Built with validated state transitions, business rule enforcement, return-request handling, refund processing, and revenue reporting. Uses PostgreSQL for persistent storage.
 
 ## **Tech Stack**
 
 - Node.js
 - TypeScript
 - Express
+- PostgreSQL (`pg`)
 
 ## **Project Structure**
 
@@ -16,9 +17,16 @@ src/
 ├── types.ts                     Shared type definitions
 ├── returnLogic.ts               Return-request factory function
 │
+├── db/
+│   ├── client.ts                PostgreSQL connection pool
+│   ├── migrate.ts               Runs SQL migration
+│   └── migrations/
+│       ├── 001_initial_scheme_up.sql
+│       └── 001_initial_scheme_down.sql
+│
 ├── store/
-│   ├── orderStore.ts            In-memory order array and ID generator
-│   ├── returnStore.ts           In-memory return-request array and ID generator
+│   ├── orderStore.ts            PostgreSQL order/order_items queries and ID generator
+│   ├── returnStore.ts           PostgreSQL return_requests queries and ID generator
 │   └── refundStore.ts           In-memory refund array and ID generator
 │
 ├── services/
@@ -32,7 +40,7 @@ src/
 │   └── refundsRouter.ts         /refunds route handlers
 │
 ├── middleware/
-│   └── validateBody.ts           Generic request body validation middleware
+│   └── validateBody.ts          Generic request body validation middleware
 │
 └── validation/
     └── orderValidation.ts        Runtime type guards for request bodies and route params
@@ -40,7 +48,7 @@ src/
 
 The app follows a layered **store → service → route** architecture:
 
-- **store**: Holds application data in in-memory arrays and handles ID generation.
+- **store**: Holds application data in PostgreSQL (and in-memory for refunds) and handles ID generation.
 - **service**: Contains business rules, validation, and state transitions. Services interact with the stores.
 - **route**: Contains Express request handlers and delegates business logic to services.
 - **middleware**: Contains reusable Express middleware, such as generic request-body validation.
@@ -55,8 +63,11 @@ TypeScript types do not exist at runtime, so `req.body` and `req.params` are val
 | `isCreateOrderPayload` | `customerName` is a string and `items` is an array of valid `OrderItem` objects |
 | `isValidStatus`        | The value is one of the seven valid `OrderStatus` strings                       |
 | `isNumericString`      | The value is a non-empty string that converts to a valid number                 |
+| `isValidParam`         | The value is a non-empty string                                                 |
 
-`isNumericString` guards route parameters that are passed into `Number(...)`, ensuring that invalid `orderId`, `productId`, `quantity`, and `refundId` values are rejected with a `400` response instead of silently becoming `NaN`.
+`isNumericString` guards the `quantity` route parameter that is passed into `Number(...)`, ensuring that invalid quantity values are rejected with a `400` response instead of silently becoming `NaN`.
+
+`isValidParam` guards route parameters like `orderId`, `productId`, and `refundId` that are used as string identifiers, ensuring they are provided as strings.
 
 Request-body values are also validated according to their expected runtime types. For example, `refundAmount` must be a JavaScript `number`, while `outcome` must be a string containing either `"completed"` or `"failed"`.
 
@@ -153,7 +164,7 @@ The refund completion logic updates these related resources in sequence and only
 - Any route parameter expected to be numeric is validated before being converted with `Number(...)`.
 - A status change must use one of the seven valid `OrderStatus` values.
 - An order status transition must exist in the order state machine.
-- A return request is only accepted for orders in the `delivered` or `return_requested` state.
+- A return request is only accepted for orders in the `delivered` state.
 - A return request is rejected after 30 days from the order creation date.
 - A return request must include a `reason`, and the reason must be a string.
 - A request against an order ID that does not exist is rejected.
@@ -172,8 +183,9 @@ Validation functions return typed results such as `{ success: true, ... }` or `{
 
 | Method   | Route                     | Behavior                                     |
 | -------- | ------------------------- | -------------------------------------------- |
+| `GET`    | `/`                       | Root health check                           |
 | `POST`   | `/orders`                 | Create a new order                           |
-| `GET`    | `/orders`                 | Filter orders by status (`?status=<status>`) |
+| `GET`    | `/orders?status=<status>` | List orders filtered by status (status required) |
 | `GET`    | `/orders/:orderId`        | Get a single order by ID                     |
 | `GET`    | `/orders/report`          | Get revenue and status breakdown             |
 | `GET`    | `/orders/:orderId/total`  | Compute an order's total                     |
@@ -198,11 +210,41 @@ Validation functions return typed results such as `{ success: true, ... }` or `{
 
 ## **Getting Started**
 
+1. Clone the repository:
+
 ```bash
 git clone https://github.com/Afhit-01/order_processing_engine.git
 cd order_processing_engine
+```
+
+2. Set up your environment:
+
+```bash
+cp .env.example .env
+```
+
+Fill in `.env` with your PostgreSQL connection string:
+
+```
+DATABASE_URL=postgres://<username>:<password>@<host>:<port>/<database_name>
+```
+
+3. Install dependencies:
+
+```bash
 npm install
-npx ts-node src/server.ts
+```
+
+4. Run database migrations:
+
+```bash
+npm run migrate
+```
+
+5. Start the server:
+
+```bash
+npm run dev
 ```
 
 The server runs on:
@@ -222,7 +264,7 @@ curl -X POST http://localhost:3000/orders \
   "customerName": "Ada Lovelace",
   "items": [
     {
-      "productId": 1,
+      "productId": "1",
       "name": "Notebook",
       "unitPrice": 5,
       "quantity": 2
@@ -327,6 +369,33 @@ curl -X PATCH http://localhost:3000/refunds/1/complete \
 curl http://localhost:3000/orders/report
 ```
 
+## **Database**
+
+The project uses **PostgreSQL** for persistent storage. The connection is configured via the `DATABASE_URL` environment variable.
+
+### Setup
+
+1. Copy `.env.example` to `.env` and fill in your connection string:
+
+```
+DATABASE_URL=postgres://<username>:<password>@<host>:<port>/<database_name>
+```
+
+2. Run migrations to create the tables:
+
+```bash
+npm run migrate
+```
+
+### Schema
+
+| Table           | Key Columns                                                                      |
+| --------------- | -------------------------------------------------------------------------------- |
+| `orders`        | `id` (UUID), `customer_name`, `status`, `created_at`                             |
+| `order_items`   | `order_id` (FK), `product_id`, `name`, `quantity`, `unit_price`                  |
+| `return_requests` | `id` (UUID), `order_id` (FK), `product_id`, `quantity`, `reason`, `status`, `created_at` |
+| `refunds`       | `id` (UUID), `return_request_id` (FK), `order_id`, `product_id`, `amount`, `status`, `requested_at`, `completed_at` |
+
 ## **Architecture**
 
 The project separates HTTP handling from business logic and data storage:
@@ -345,14 +414,14 @@ The project separates HTTP handling from business logic and data storage:
                              │
                              ▼
                     ┌─────────────────┐
-                    │      Stores     │
-                    │ In-memory data  │
+                     │      Stores     │
+                     │ PostgreSQL data │
                     └─────────────────┘
 ```
 
 This separation keeps the route layer focused on HTTP concerns while business rules remain inside the service layer.
 
-The current stores are in-memory and are intentionally structured so they can be replaced with a persistent database such as PostgreSQL.
+The stores currently use **PostgreSQL** via a connection pool (`src/db/client.ts`), with `refundStore.ts` remaining in-memory. The stores are structured so they can be replaced or extended as needed.
 
 ## **Author**
 
