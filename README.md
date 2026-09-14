@@ -64,15 +64,15 @@ Every row the engine generates uses a UUID primary key (`orders.id`, `return_req
 
 ## Domain Model
 
-| Type | Description |
-|---|---|
-| `OrderStatus` | Union type: `pending`, `confirmed`, `shipped`, `delivered`, `cancelled`, `return_requested`, `returned` |
-| `OrderItem` | `productId`, `name`, `unitPrice`, `quantity` |
-| `Order` | `id`, `customerName`, `items`, `status`, `createdAt` |
-| `ReturnStatus` | Union type: `pending`, `approved`, `rejected`, `in_transit`, `received`, `refunded` |
-| `ReturnRequest` | `id`, `orderId`, `productId`, `quantity`, `reason`, `status`, `requestedAt` |
-| `RefundStatus` | Union type: `pending`, `completed`, `failed` |
-| `Refund` | `id`, `returnRequestId`, `orderId`, `productId`, `amount`, `status`, `requestedAt`, `completedAt` |
+| Type            | Description                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------- |
+| `OrderStatus`   | Union type: `pending`, `confirmed`, `shipped`, `delivered`, `cancelled`, `return_requested`, `returned` |
+| `OrderItem`     | `productId`, `name`, `unitPrice`, `quantity`                                                            |
+| `Order`         | `id`, `customerName`, `items`, `status`, `createdAt`                                                    |
+| `ReturnStatus`  | Union type: `pending`, `approved`, `rejected`, `in_transit`, `received`, `refunded`                     |
+| `ReturnRequest` | `id`, `orderId`, `productId`, `quantity`, `reason`, `status`, `requestedAt`                             |
+| `RefundStatus`  | Union type: `pending`, `completed`, `failed`                                                            |
+| `Refund`        | `id`, `returnRequestId`, `orderId`, `productId`, `amount`, `status`, `requestedAt`, `completedAt`       |
 
 ## Order State Machine
 
@@ -101,13 +101,13 @@ received     -> refunded
 refunded     -> (terminal)
 ```
 
-| Function | Transition | Touches `Order.status`? |
-|---|---|---|
-| `returnOrder` | creates the return at `pending` | yes, moves the order to `return_requested` |
-| `reviewReturn` | `pending -> approved` / `rejected` | yes, only on `rejected`: moves the order back to `delivered` |
-| `markReturnInTransit` | `approved -> in_transit` | no |
-| `receiveReturn` | `in_transit -> received` | no |
-| `markReturnRefunded` | `received -> refunded` | no by itself; called by `completeRefund`, see below |
+| Function              | Transition                         | Touches `Order.status`?                                      |
+| --------------------- | ---------------------------------- | ------------------------------------------------------------ |
+| `returnOrder`         | creates the return at `pending`    | yes, moves the order to `return_requested`                   |
+| `reviewReturn`        | `pending -> approved` / `rejected` | yes, only on `rejected`: moves the order back to `delivered` |
+| `markReturnInTransit` | `approved -> in_transit`           | no                                                           |
+| `receiveReturn`       | `in_transit -> received`           | no                                                           |
+| `markReturnRefunded`  | `received -> refunded`             | no by itself; called by `completeRefund`, see below          |
 
 ## Refund Lifecycle
 
@@ -117,11 +117,11 @@ completed  -> (terminal)
 failed     -> (terminal, but a new refund can be processed again for the same return)
 ```
 
-| Function | What it does | Touches `ReturnRequest.status`? | Touches `Order.status`? |
-|---|---|---|---|
-| `processRefund` | creates a `Refund` at `pending` for a `received` return | no | no |
-| `completeRefund` (outcome `completed`) | moves the refund to `completed`, calls `markReturnRefunded`, then moves the order to `returned` | yes, to `refunded` | yes, to `returned` |
-| `completeRefund` (outcome `failed`) | moves the refund to `failed` only | no | no |
+| Function                               | What it does                                                                                    | Touches `ReturnRequest.status`? | Touches `Order.status`? |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------- | ----------------------- |
+| `processRefund`                        | creates a `Refund` at `pending` for a `received` return                                         | no                              | no                      |
+| `completeRefund` (outcome `completed`) | moves the refund to `completed`, calls `markReturnRefunded`, then moves the order to `returned` | yes, to `refunded`              | yes, to `returned`      |
+| `completeRefund` (outcome `failed`)    | moves the refund to `failed` only                                                               | no                              | no                      |
 
 A failed refund leaves the return request at `received`, so `processRefund` can be called again for a fresh retry.
 
@@ -144,21 +144,21 @@ Validation functions return a typed result (`{ success: true, ... }` or `{ succe
 
 ## API Endpoints
 
-| Method | Route | Behavior |
-|---|---|---|
-| POST | `/orders` | Create a new order (validated) |
-| GET | `/orders?status=<status>` | Filter orders by status |
-| GET | `/orders/report` | Revenue and status breakdown |
-| GET | `/orders/:orderId` | Fetch a single order |
-| GET | `/orders/:orderId/total` | Compute an order's total |
-| PATCH | `/orders/:orderId/status` | Transition an order's status (validated) |
-| DELETE | `/orders/:orderId` | Cancel an order (not a hard delete) |
-| PATCH | `/return/:orderId/:productId/:quantity` | Submit a return request for a delivered order (body: `{ "reason": string }`) |
-| PATCH | `/return/:orderId/:productId/review` | Approve or reject a return request (body: `{ "review": "approved" \| "rejected" }`) |
-| PATCH | `/return/:orderId/:productId/ship` | Mark a return as in transit |
-| PATCH | `/return/:orderId/:productId/receive` | Mark a return as received |
-| POST | `/return/:orderId/:productId/refund` | Create a refund for a received return (body: `{ "refundAmount": number }`) |
-| PATCH | `/refunds/:refundId/complete` | Complete or fail a pending refund (body: `{ "outcome": "completed" \| "failed" }`) |
+| Method | Route                                   | Behavior                                                                            |
+| ------ | --------------------------------------- | ----------------------------------------------------------------------------------- |
+| POST   | `/orders`                               | Create a new order (validated)                                                      |
+| GET    | `/orders?status=<status>`               | Filter orders by status                                                             |
+| GET    | `/orders/report`                        | Revenue and status breakdown                                                        |
+| GET    | `/orders/:orderId`                      | Fetch a single order                                                                |
+| GET    | `/orders/:orderId/total`                | Compute an order's total                                                            |
+| PATCH  | `/orders/:orderId/status`               | Transition an order's status (validated)                                            |
+| DELETE | `/orders/:orderId`                      | Cancel an order (not a hard delete)                                                 |
+| PATCH  | `/return/:orderId/:productId/:quantity` | Submit a return request for a delivered order (body: `{ "reason": string }`)        |
+| PATCH  | `/return/:orderId/:productId/review`    | Approve or reject a return request (body: `{ "review": "approved" \| "rejected" }`) |
+| PATCH  | `/return/:orderId/:productId/ship`      | Mark a return as in transit                                                         |
+| PATCH  | `/return/:orderId/:productId/receive`   | Mark a return as received                                                           |
+| POST   | `/return/:orderId/:productId/refund`    | Create a refund for a received return (body: `{ "refundAmount": number }`)          |
+| PATCH  | `/refunds/:refundId/complete`           | Complete or fail a pending refund (body: `{ "outcome": "completed" \| "failed" }`)  |
 
 Not yet built: `GET /return` and `GET /return/:returnId` to list or inspect return requests directly, and `GET /refunds` and `GET /refunds/:refundId` for the same on refunds. Authentication, idempotency keys, invoice generation, and API documentation are planned but not yet implemented.
 
@@ -228,4 +228,3 @@ Computer Science student, University of Ilorin
 - GitHub: [github.com/Afhit-01](https://github.com/Afhit-01)
 - LinkedIn: [fatihu-a-abdulganiyu](https://linkedin.com/in/fatihu-a-abdulganiyu-18115838a)
 - Email: abdulganiyufatihu5.0@gmail.com
-  

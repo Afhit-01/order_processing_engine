@@ -10,7 +10,11 @@ export const insertOrder = async (
   try {
     await client.query("BEGIN");
 
-    const orderQuery = `INSERT INTO orders (customer_name, status) VALUES ($1, $2) RETURNING id, customer_name, status, created_at;`;
+    const orderQuery = `
+    INSERT INTO orders (customer_name, status)
+    VALUES ($1, $2) 
+    RETURNING id, customer_name, status, created_at;
+    `;
     const orderResult = await client.query(orderQuery, [
       customerName,
       "pending",
@@ -73,7 +77,10 @@ export const getOrderByIdFromDb = async (id: string): Promise<Order | null> => {
 
     const row = orderResult.rows[0];
 
-    const itemsQuery = `SELECT product_id, name, quantity, unit_price FROM order_items WHERE order_id = $1;`;
+    const itemsQuery = `
+    SELECT product_id, name, quantity, unit_price 
+    FROM order_items WHERE order_id = $1;
+    `;
     const itemsResult = await client.query(itemsQuery, [id]);
 
     const order: Order = {
@@ -100,13 +107,20 @@ export const getOrdersByStatusFromDb = async (
 ): Promise<Order[]> => {
   const client = await pool.connect();
   try {
-    const orderQuery = `SELECT id, customer_name, status, created_at FROM orders WHERE status = $1;`;
+    const orderQuery = `
+    SELECT id, customer_name, status, created_at
+    FROM orders
+    WHERE status = $1;`;
     const orderResult = await client.query(orderQuery, [status]);
 
     const orders: Order[] = [];
 
     for (const row of orderResult.rows) {
-      const itemsQuery = `SELECT product_id, name, quantity, unit_price FROM order_items WHERE order_id = $1;`;
+      const itemsQuery = `
+      SELECT product_id, name, quantity, unit_price
+      FROM order_items
+      WHERE order_id = $1;
+      `;
       const itemsResult = await client.query(itemsQuery, [row.id]);
 
       orders.push({
