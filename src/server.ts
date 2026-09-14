@@ -7,9 +7,12 @@ import express, {
 import ordersRouter from "./routes/ordersRouter.js";
 import returnsRouter from "./routes/returnsRouter.js";
 import refundsRouter from "./routes/refundsRouter.js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app: Express = express();
-const port = 3000;
+const port = process.env.PORT;
 
 app.use(express.json());
 
