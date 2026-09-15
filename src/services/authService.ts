@@ -2,16 +2,16 @@ import dotenv from "dotenv";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import type { JwtPayload } from "../types.js";
-import { 
-  fetchCustomerByEmail, 
-  fetchStaffByEmail, 
-  insertCustomer as insertCustomerStore 
+import {
+  fetchCustomerByEmail,
+  fetchStaffByEmail,
+  insertCustomer as insertCustomerStore,
 } from "../store/authStore.js";
 
 dotenv.config();
 
-type AuthResult = 
-  | { success: false; reason: string } 
+type AuthResult =
+  | { success: false; reason: string }
   | { success: true; token: string; message: string };
 
 export const loginStaff = async (
@@ -59,7 +59,9 @@ export const loginStaff = async (
 export const registerCustomer = async (
   email: string,
   password: string,
-): Promise<{ success: false; reason: string } | { success: true; message: string }> => {
+): Promise<
+  { success: false; reason: string } | { success: true; message: string }
+> => {
   try {
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -87,14 +89,11 @@ export const loginCustomer = async (
   if (!customer) {
     return {
       success: false,
-      reason: "Customer doesn't exist", 
+      reason: "Customer doesn't exist",
     };
   }
 
-  const isValidPassword = await bcrypt.compare(
-    password,
-    customer.passwordHash,
-  );
+  const isValidPassword = await bcrypt.compare(password, customer.passwordHash);
   if (!isValidPassword) {
     return {
       success: false,

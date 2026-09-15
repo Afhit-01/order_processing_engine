@@ -39,7 +39,7 @@ export const insertCustomer = async (
         RETURNING id, email;
     `;
     const result = await client.query(query, [email, passwordHash]);
-    
+
     return {
       id: result.rows[0].id,
       email: result.rows[0].email,

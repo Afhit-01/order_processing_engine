@@ -8,14 +8,14 @@ import ordersRouter from "./routes/ordersRouter.js";
 import returnsRouter from "./routes/returnsRouter.js";
 import refundsRouter from "./routes/refundsRouter.js";
 import dotenv from "dotenv";
-import helmet from "helmet"
+import helmet from "helmet";
 
 dotenv.config();
 
 const app: Express = express();
 const port = process.env.PORT;
 
-app.use(helmet())
+app.use(helmet());
 app.use(express.json());
 
 app.get("/", (req: Request, res: Response) => {

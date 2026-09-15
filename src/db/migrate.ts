@@ -9,14 +9,11 @@ const __dirname = path.dirname(__filename);
 const runMigration = async () => {
   const direction = process.argv[2];
 
-  const upMigrations = [
-    "001_initial_scheme_up.sql",
-    "002_add_auth_up.sql"
-  ];
+  const upMigrations = ["001_initial_scheme_up.sql", "002_add_auth_up.sql"];
 
   const downMigrations = [
     "002_add_auth_down.sql",
-    "001_initial_scheme_down.sql"
+    "001_initial_scheme_down.sql",
   ];
 
   let filesToRun: string[] = [];
@@ -28,13 +25,13 @@ const runMigration = async () => {
     console.error("Please specify migration direction: 'up' or 'down'");
     process.exit(1);
   }
-  
+
   try {
     for (const file of filesToRun) {
       console.log(`Running migration: ${file}...`);
       const filePath = path.join(__dirname, "migrations", file);
       const sqlFile = fs.readFileSync(filePath, "utf-8");
-      
+
       await pool.query(sqlFile);
       console.log(`Migration ${file} completed!`);
     }
