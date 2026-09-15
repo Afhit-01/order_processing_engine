@@ -9,7 +9,8 @@
     "migrate:up": "tsx src/db/migrate.ts up",
     "migrate:down": "tsx src/db/migrate.ts down",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "seed": "npx ts-node src/db/seed.ts"
   },
   "keywords": [
     "express",
