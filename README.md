@@ -18,12 +18,15 @@ src/
   db/
     client.ts                  PostgreSQL connection pool
     migrate.ts                 Migration runner (up / down)
-    migrations/                001_initial_scheme_up.sql, 001_initial_scheme_down.sql
+    seed.ts                    Seed an admin staff account
+    migrations/                Initial schema and authentication migrations (up / down)
   store/
+    authStore.ts               Customer and staff queries
     orderStore.ts               Order and order item queries
     returnStore.ts               Return request queries
     refundStore.ts               Refund queries
   services/
+    authService.ts              Customer registration and staff/customer JWT login logic
     orderService.ts             Order lifecycle logic, state transitions, validation
     returnService.ts             Return-request lifecycle: create, review, ship, receive, mark refunded
     refundService.ts             Refund lifecycle: process, complete or fail
@@ -53,6 +56,7 @@ npm run migrate:down
 ```
 
 Connection is configured through a `DATABASE_URL` environment variable, loaded via `dotenv`.
+The migration runner applies both the order schema and the authentication schema. The optional `seed` script creates an admin staff account using `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD`.
 
 Order creation runs inside a single database transaction: the order row and every one of its item rows are inserted together, so a failure partway through never leaves an order with missing items.
 
@@ -160,7 +164,7 @@ Validation functions return a typed result (`{ success: true, ... }` or `{ succe
 | POST   | `/return/:orderId/:productId/refund`    | Create a refund for a received return (body: `{ "refundAmount": number }`)          |
 | PATCH  | `/refunds/:refundId/complete`           | Complete or fail a pending refund (body: `{ "outcome": "completed" \| "failed" }`)  |
 
-Not yet built: `GET /return` and `GET /return/:returnId` to list or inspect return requests directly, and `GET /refunds` and `GET /refunds/:refundId` for the same on refunds. Authentication, idempotency keys, invoice generation, and API documentation are planned but not yet implemented.
+Not yet built: `GET /return` and `GET /return/:returnId` to list or inspect return requests directly, and `GET /refunds` and `GET /refunds/:refundId` for the same on refunds. Authentication is partially implemented: customer registration and staff/customer JWT generation exist in `authService.ts`, and migration `002` adds customer and staff tables. Authentication routes, request authentication middleware, and authorization checks are not yet mounted on the API. Idempotency keys, invoice generation, and API documentation are also not yet implemented.
 
 ## Getting Started
 
@@ -174,16 +178,23 @@ Create a `.env` file with your database connection string:
 
 ```
 DATABASE_URL=postgresql://user:password@localhost:5432/order_processing_engine
+PORT=3000
+JWT_SECRET=replace-with-a-long-random-secret
+SEED_ADMIN_EMAIL=admin@example.com
+SEED_ADMIN_PASSWORD=replace-with-a-secure-password
 ```
 
 Run migrations, then start the server:
 
 ```
 npm run migrate:up
+npm run seed
 npm run dev
 ```
 
 The server runs on `http://localhost:3000`.
+
+Other available commands are `npm run build` for a TypeScript build, `npm run migrate:down` to roll back the migrations, and `npm run format` or `npm run format:check` for Prettier formatting.
 
 ## Example Requests
 
