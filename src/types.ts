@@ -48,3 +48,22 @@ export interface Refund {
   requestedAt: string; // ISO date string
   completedAt: string | null; // ISO date string
 }
+
+// Staff & Customers
+
+export type StaffRole = "admin" | "staff";
+export interface Staff {
+  id: string;
+  email: string;
+  passwordHash: string;
+  role: StaffRole;
+}
+export interface Customer {
+  id: string;
+  email: string;
+  passwordHash: string;
+}
+export interface JwtPayload {
+  id: string;
+  role: "admin" | "staff" | "customer";
+}
