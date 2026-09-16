@@ -1,4 +1,5 @@
 import type { OrderItem, OrderStatus } from "../types.js";
+import validator from "validator";
 
 const isOrderItem = (value: unknown): value is OrderItem => {
   if (typeof value !== "object" || value === null) return false;
@@ -48,12 +49,14 @@ export function isValidParam(
   return typeof value === "string";
 }
 
-// Used for route params that represent actual numeric business fields
-// (e.g. quantity), not IDs.
 export const isNumericString = (value: unknown): value is string => {
   return (
     typeof value === "string" &&
     value.trim() !== "" &&
     !Number.isNaN(Number(value))
   );
+};
+
+export const isValidEmail = (email: string): boolean => {
+  return validator.isEmail(email);
 };

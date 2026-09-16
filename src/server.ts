@@ -7,6 +7,7 @@ import express, {
 import ordersRouter from "./routes/ordersRouter.js";
 import returnsRouter from "./routes/returnsRouter.js";
 import refundsRouter from "./routes/refundsRouter.js";
+import authRouter from "./routes/authRouter.js"
 import dotenv from "dotenv";
 import helmet from "helmet";
 
@@ -25,6 +26,7 @@ app.get("/", (req: Request, res: Response) => {
 app.use("/orders", ordersRouter);
 app.use("/return", returnsRouter);
 app.use("/refunds", refundsRouter);
+app.use("/auth", authRouter)
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.log(err);

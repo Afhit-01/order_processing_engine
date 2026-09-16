@@ -13,7 +13,7 @@ import {
   isCreateOrderPayload,
   isValidStatus,
   isValidParam,
-} from "../validation/orderValidation.js";
+} from "../validation/validation.js";
 import { validateBody } from "../middleware/validateBody.js";
 
 const router = Router();

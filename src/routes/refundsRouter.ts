@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { completeRefund } from "../services/refundService.js";
 import { getRefundByIdFromDB } from "../store/refundStore.js";
-import { isValidParam } from "../validation/orderValidation.js";
+import { isValidParam } from "../validation/validation.js";
 
 const router = Router();
 

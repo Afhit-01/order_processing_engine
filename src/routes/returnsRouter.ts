@@ -8,7 +8,7 @@ import {
 import {
   isValidParam,
   isNumericString,
-} from "../validation/orderValidation.js";
+} from "../validation/validation.js";
 import { getReturnByOrderAndProductFromDb } from "../store/returnStore.js";
 import { processRefund } from "../services/refundService.js";
 
