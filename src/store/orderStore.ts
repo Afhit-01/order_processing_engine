@@ -2,6 +2,7 @@ import pool from "../db/client.js";
 import type { Order, OrderItem, OrderStatus } from "../types.js";
 
 export const insertOrder = async (
+  customerId: string,
   customerName: string,
   items: OrderItem[],
 ): Promise<Order> => {
@@ -11,21 +12,21 @@ export const insertOrder = async (
     await client.query("BEGIN");
 
     const orderQuery = `
-    INSERT INTO orders (customer_name, status)
-    VALUES ($1, $2) 
-    RETURNING id, customer_name, status, created_at;
+      INSERT INTO orders (customer_id, status)
+      VALUES ($1, $2) 
+      RETURNING id, customer_id, status, created_at;
     `;
     const orderResult = await client.query(orderQuery, [
-      customerName,
+      customerId,
       "pending",
     ]);
     const savedOrder = orderResult.rows[0];
 
     for (const item of items) {
       const itemQuery = `
-    INSERT INTO order_items (order_id, product_id, name, quantity, unit_price) 
-    VALUES ($1, $2, $3, $4, $5);
-  `;
+        INSERT INTO order_items (order_id, product_id, name, quantity, unit_price) 
+        VALUES ($1, $2, $3, $4, $5);
+      `;
       await client.query(itemQuery, [
         savedOrder.id,
         item.productId,
@@ -39,7 +40,7 @@ export const insertOrder = async (
 
     return {
       id: savedOrder.id,
-      customerName: savedOrder.customer_name,
+      customerName,
       items,
       status: savedOrder.status,
       createdAt: savedOrder.created_at,
@@ -58,7 +59,11 @@ export const updateOrderStatusInDb = async (
 ) => {
   const client = await pool.connect();
   try {
-    const updateQuery = `UPDATE orders SET status = $1 WHERE id = $2;`;
+    const updateQuery = `
+      UPDATE orders 
+      SET status = $1 
+      WHERE id = $2;
+    `;
     await client.query(updateQuery, [newStatus, id]);
   } finally {
     client.release();
@@ -68,24 +73,30 @@ export const updateOrderStatusInDb = async (
 export const getOrderByIdFromDb = async (id: string): Promise<Order | null> => {
   const client = await pool.connect();
   try {
-    const orderQuery = `SELECT id, customer_name, status, created_at FROM orders WHERE id = $1;`;
+    const orderQuery = `
+      SELECT orders.id, orders.customer_id, orders.status, orders.created_at, customers.email as customer_email 
+      FROM orders
+      JOIN customers ON orders.customer_id = customers.id
+      WHERE orders.id = $1;
+    `;
     const orderResult = await client.query(orderQuery, [id]);
 
     if (orderResult.rows.length === 0) {
-      return null; // Order doesn't exist
+      return null;
     }
 
     const row = orderResult.rows[0];
 
     const itemsQuery = `
-    SELECT product_id, name, quantity, unit_price 
-    FROM order_items WHERE order_id = $1;
+      SELECT product_id, name, quantity, unit_price 
+      FROM order_items 
+      WHERE order_id = $1;
     `;
     const itemsResult = await client.query(itemsQuery, [id]);
 
     const order: Order = {
       id: row.id,
-      customerName: row.customer_name,
+      customerName: row.customer_email,
       status: row.status,
       createdAt: row.created_at,
       items: itemsResult.rows.map((itemRow) => ({
@@ -104,28 +115,37 @@ export const getOrderByIdFromDb = async (id: string): Promise<Order | null> => {
 
 export const getOrdersByStatusFromDb = async (
   status: OrderStatus,
+  customerId?: string,
 ): Promise<Order[]> => {
   const client = await pool.connect();
   try {
-    const orderQuery = `
-    SELECT id, customer_name, status, created_at
-    FROM orders
-    WHERE status = $1;`;
-    const orderResult = await client.query(orderQuery, [status]);
+    let orderQuery = `
+      SELECT orders.id, orders.customer_id, orders.status, orders.created_at, customers.email as customer_email
+      FROM orders
+      JOIN customers ON orders.customer_id = customers.id
+      WHERE orders.status = $1
+    `;
+    const queryParams: any[] = [status];
 
+    if (customerId) {
+      orderQuery += ` AND orders.customer_id = $2`;
+      queryParams.push(customerId);
+    }
+
+    const orderResult = await client.query(orderQuery, queryParams);
     const orders: Order[] = [];
 
     for (const row of orderResult.rows) {
       const itemsQuery = `
-      SELECT product_id, name, quantity, unit_price
-      FROM order_items
-      WHERE order_id = $1;
+        SELECT product_id, name, quantity, unit_price
+        FROM order_items
+        WHERE order_id = $1;
       `;
       const itemsResult = await client.query(itemsQuery, [row.id]);
 
       orders.push({
         id: row.id,
-        customerName: row.customer_name,
+        customerName: row.customer_email,
         status: row.status,
         createdAt: row.created_at,
         items: itemsResult.rows.map((itemRow) => ({
@@ -175,10 +195,10 @@ export const getOrderReportFromId = async (): Promise<{
     }
 
     const revenueQuery = `
-      SELECT SUM(oi.quantity * oi.unit_price) as total_revenue
-      FROM order_items oi
-      JOIN orders o ON oi.order_id = o.id
-      WHERE o.status IN ('confirmed', 'shipped', 'delivered');
+      SELECT SUM(order_items.quantity * order_items.unit_price) as total_revenue
+      FROM order_items
+      JOIN orders ON order_items.order_id = orders.id
+      WHERE orders.status IN ('confirmed', 'shipped', 'delivered');
     `;
     const revenueResult = await client.query(revenueQuery);
     const revenue = Number(revenueResult.rows[0].total_revenue || 0);

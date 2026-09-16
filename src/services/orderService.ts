@@ -1,4 +1,4 @@
-import type { Order, OrderItem, OrderStatus } from "../types.js";
+import type { Order, OrderItem, OrderStatus, JwtPayload } from "../types.js";
 import {
   getOrderByIdFromDb,
   getOrderReportFromId,
@@ -18,7 +18,7 @@ export const validTransitions: Record<OrderStatus, OrderStatus[]> = {
 };
 
 export const createOrder = async (
-  customerName: string,
+  user: JwtPayload,
   items: OrderItem[],
 ): Promise<
   { success: true; order: Order } | { success: false; reason: string }
@@ -34,12 +34,34 @@ export const createOrder = async (
   if (hasNegatives) {
     return {
       success: false,
-      reason: "Quantity or UnitPrice cart must be greater than 0",
+      reason: "Quantity or UnitPrice must be greater than 0",
     };
   }
 
-  const order = await insertOrder(customerName, items);
+  // Ensure only customers place orders through this path
+  if (user.role !== "customer") {
+    return { success: false, reason: "Only customers can place orders" };
+  }
+
+  const order = await insertOrder(user.id, "Customer", items);
   return { success: true, order };
+};
+
+export const getOrderById = async (id: string, user: JwtPayload): Promise<Order | null> => {
+  const order = await getOrderByIdFromDb(id);
+
+  if (!order) return null;
+
+  return order;
+};
+
+export const getOrdersByStatus = async (
+  status: OrderStatus,
+  user: JwtPayload,
+): Promise<Order[]> => {
+  // If customer, pass their ID to filter. If staff/admin, pass undefined to get all.
+  const customerIdFilter = user.role === "customer" ? user.id : undefined;
+  return await getOrdersByStatusFromDb(status, customerIdFilter);
 };
 
 export const updateOrderStatus = async (
@@ -57,7 +79,7 @@ export const updateOrderStatus = async (
   if (!isValid) {
     return {
       success: false,
-      reason: `Cannot change status from ${order.status} to ${newStatus}. Wanna retry..?`,
+      reason: `Cannot change status from ${order.status} to ${newStatus}`,
     };
   }
 
@@ -65,26 +87,14 @@ export const updateOrderStatus = async (
   return { success: true };
 };
 
-export const getOrderById = async (id: string): Promise<Order | null> => {
-  const order = await getOrderByIdFromDb(id);
-  return order || null;
-};
-
 export const getOrderTotal = async (id: string): Promise<number | null> => {
   const order = await getOrderByIdFromDb(id);
-
   if (!order) return null;
 
   return order.items.reduce(
     (total, entity) => total + entity.quantity * entity.unitPrice,
     0,
   );
-};
-
-export const getOrdersByStatus = async (
-  status: OrderStatus,
-): Promise<Order[]> => {
-  return await getOrdersByStatusFromDb(status);
 };
 
 export const cancelOrder = async (
@@ -104,10 +114,6 @@ export const cancelOrder = async (
   return { success: false, reason: "Can't cancel at this stage" };
 };
 
-export const getOrderReport = async (): Promise<{
-  totalOrders: number;
-  byStatus: Record<OrderStatus, number>;
-  revenue: number;
-}> => {
+export const getOrderReport = async () => {
   return await getOrderReportFromId();
 };

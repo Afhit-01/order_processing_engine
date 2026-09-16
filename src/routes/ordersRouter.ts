@@ -31,7 +31,7 @@ router.post(
       });
     }
     const { customerName, items } = req.body;
-    const result = await createOrder(customerName, items);
+    const result = await createOrder(req.user!, items);
 
     if (!result.success) return res.status(400).json({ error: result.reason });
     return res.status(201).json(result.order);
@@ -45,7 +45,7 @@ router.get("/", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Status query param is required" });
   }
 
-  const orders = await getOrdersByStatus(status);
+  const orders = await getOrdersByStatus(status, req.user!);
   return res.status(200).json(orders);
 });
 
@@ -60,7 +60,7 @@ router.get("/:orderId", async (req: Request, res: Response) => {
   }
 
   const orderId = req.params.orderId;
-  const order = await getOrderById(orderId);
+  const order = await getOrderById(orderId, req.user!);
 
   if (!order) {
     return res.status(404).json({ error: "Order not found" });
