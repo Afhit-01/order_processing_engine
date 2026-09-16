@@ -5,14 +5,13 @@ import {
   returnOrder,
   reviewReturn,
 } from "../services/returnService.js";
-import {
-  isValidParam,
-  isNumericString,
-} from "../validation/validation.js";
+import { isValidParam, isNumericString } from "../validation/validation.js";
 import { getReturnByOrderAndProductFromDb } from "../store/returnStore.js";
 import { processRefund } from "../services/refundService.js";
+import { requireAuth } from "../middleware/requireAuth.js";
 
 const router = Router();
+router.use(requireAuth);
 
 router.patch(
   "/:orderId/:productId/:quantity",
