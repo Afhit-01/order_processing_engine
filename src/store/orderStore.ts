@@ -1,10 +1,6 @@
 import pool from "../db/client.js";
 
-import type {
-  Order,
-  OrderItem,
-  OrderStatus,
-} from "../types.js";
+import type { Order, OrderItem, OrderStatus } from "../types.js";
 
 export const insertOrder = async (
   customerId: string,
@@ -22,10 +18,7 @@ export const insertOrder = async (
       RETURNING id, customer_id, status, created_at;
     `;
 
-    const orderResult = await client.query(orderQuery, [
-      customerId,
-      "pending",
-    ]);
+    const orderResult = await client.query(orderQuery, [customerId, "pending"]);
 
     const savedOrder = orderResult.rows[0];
 
@@ -118,10 +111,7 @@ export const getOrderByIdFromDb = async (
 
     orderQuery += ";";
 
-    const orderResult = await client.query(
-      orderQuery,
-      queryParams,
-    );
+    const orderResult = await client.query(orderQuery, queryParams);
 
     if (orderResult.rows.length === 0) {
       return null;
@@ -193,10 +183,7 @@ export const getOrdersByStatusFromDb = async (
 
     orderQuery += ";";
 
-    const orderResult = await client.query(
-      orderQuery,
-      queryParams,
-    );
+    const orderResult = await client.query(orderQuery, queryParams);
 
     const orders: Order[] = [];
 
@@ -211,10 +198,7 @@ export const getOrdersByStatusFromDb = async (
         WHERE order_id = $1;
       `;
 
-      const itemsResult = await client.query(
-        itemsQuery,
-        [row.id],
-      );
+      const itemsResult = await client.query(itemsQuery, [row.id]);
 
       orders.push({
         id: row.id,
@@ -253,9 +237,7 @@ export const getOrderReportFromId = async (): Promise<{
       GROUP BY status;
     `;
 
-    const statusResult = await client.query(
-      statusCountQuery,
-    );
+    const statusResult = await client.query(statusCountQuery);
 
     const byStatus: Record<OrderStatus, number> = {
       pending: 0,
@@ -293,13 +275,9 @@ export const getOrderReportFromId = async (): Promise<{
       );
     `;
 
-    const revenueResult = await client.query(
-      revenueQuery,
-    );
+    const revenueResult = await client.query(revenueQuery);
 
-    const revenue = Number(
-      revenueResult.rows[0].total_revenue || 0,
-    );
+    const revenue = Number(revenueResult.rows[0].total_revenue || 0);
 
     return {
       totalOrders,
