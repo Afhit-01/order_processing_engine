@@ -16,16 +16,12 @@ export const processRefund = async (
 ): Promise<
   { success: true; refund: Refund } | { success: false; reason: string }
 > => {
-
-  if (
-  user.role !== "staff" &&
-  user.role !== "admin"
-) {
-  return {
-    success: false,
-    reason: "Only staff or admin can process refunds",
-  };
-}
+  if (user.role !== "staff" && user.role !== "admin") {
+    return {
+      success: false,
+      reason: "Only staff or admin can process refunds",
+    };
+  }
   const returnRequest = await getReturnByIdFromDB(returnId);
 
   if (!returnRequest) {

@@ -126,7 +126,6 @@ export const getOrderTotal = async (
   id: string,
   user: JwtPayload,
 ): Promise<number | null> => {
-  
   const customerIdFilter = user.role === "customer" ? user.id : undefined;
 
   const order = await getOrderByIdFromDb(id, customerIdFilter);

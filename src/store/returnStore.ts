@@ -1,8 +1,5 @@
 import pool from "../db/client.js";
-import type {
-  ReturnRequest,
-  ReturnStatus,
-} from "../types.js";
+import type { ReturnRequest, ReturnStatus } from "../types.js";
 
 export const insertReturnRequest = async (
   orderId: string,
@@ -32,16 +29,13 @@ export const insertReturnRequest = async (
         created_at;
     `;
 
-    const result = await client.query(
-      query,
-      [
-        orderId,
-        productId,
-        quantity,
-        reason,
-        "pending",
-      ],
-    );
+    const result = await client.query(query, [
+      orderId,
+      productId,
+      quantity,
+      reason,
+      "pending",
+    ]);
 
     const row = result.rows[0];
 
@@ -93,10 +87,7 @@ export const getReturnByIdFromDB = async (
 
     getQuery += ";";
 
-    const result = await client.query(
-      getQuery,
-      queryParams,
-    );
+    const result = await client.query(getQuery, queryParams);
 
     if (result.rowCount === 0) {
       return null;
@@ -131,25 +122,21 @@ export const updateReturnRequestInDB = async (
       WHERE id = $2;
     `;
 
-    await client.query(
-      query,
-      [status, id],
-    );
+    await client.query(query, [status, id]);
   } finally {
     client.release();
   }
 };
 
-export const getReturnByOrderAndProductFromDb =
-  async (
-    orderId: string,
-    productId: string,
-    customerId?: string,
-  ): Promise<ReturnRequest | null> => {
-    const client = await pool.connect();
+export const getReturnByOrderAndProductFromDb = async (
+  orderId: string,
+  productId: string,
+  customerId?: string,
+): Promise<ReturnRequest | null> => {
+  const client = await pool.connect();
 
-    try {
-      let query = `
+  try {
+    let query = `
         SELECT
           return_requests.id,
           return_requests.order_id,
@@ -166,42 +153,36 @@ export const getReturnByOrderAndProductFromDb =
           AND return_requests.product_id = $2
       `;
 
-      const queryParams: string[] = [
-        orderId,
-        productId,
-      ];
+    const queryParams: string[] = [orderId, productId];
 
-      if (customerId) {
-        query += `
+    if (customerId) {
+      query += `
           AND orders.customer_id = $3
         `;
 
-        queryParams.push(customerId);
-      }
-
-      query += ";";
-
-      const result = await client.query(
-        query,
-        queryParams,
-      );
-
-      if (result.rows.length === 0) {
-        return null;
-      }
-
-      const row = result.rows[0];
-
-      return {
-        id: row.id,
-        orderId: row.order_id,
-        productId: row.product_id,
-        quantity: row.quantity,
-        reason: row.reason,
-        status: row.status as ReturnStatus,
-        requestedAt: row.created_at,
-      };
-    } finally {
-      client.release();
+      queryParams.push(customerId);
     }
-  };
+
+    query += ";";
+
+    const result = await client.query(query, queryParams);
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    const row = result.rows[0];
+
+    return {
+      id: row.id,
+      orderId: row.order_id,
+      productId: row.product_id,
+      quantity: row.quantity,
+      reason: row.reason,
+      status: row.status as ReturnStatus,
+      requestedAt: row.created_at,
+    };
+  } finally {
+    client.release();
+  }
+};

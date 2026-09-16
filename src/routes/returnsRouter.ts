@@ -1,8 +1,4 @@
-import {
-  Router,
-  type Request,
-  type Response,
-} from "express";
+import { Router, type Request, type Response } from "express";
 
 import {
   markReturnInTransit,
@@ -11,14 +7,9 @@ import {
   reviewReturn,
 } from "../services/returnService.js";
 
-import {
-  isValidParam,
-  isNumericString,
-} from "../validation/validation.js";
+import { isValidParam, isNumericString } from "../validation/validation.js";
 
-import {
-  getReturnByOrderAndProductFromDb,
-} from "../store/returnStore.js";
+import { getReturnByOrderAndProductFromDb } from "../store/returnStore.js";
 
 import { processRefund } from "../services/refundService.js";
 
@@ -32,11 +23,7 @@ router.patch(
   "/:orderId/:productId/:quantity",
   async (req: Request, res: Response) => {
     try {
-      const {
-        orderId,
-        productId,
-        quantity,
-      } = req.params;
+      const { orderId, productId, quantity } = req.params;
 
       if (!isValidParam(orderId)) {
         return res.status(400).json({
@@ -99,10 +86,7 @@ router.patch(
   "/:orderId/:productId/review",
   async (req: Request, res: Response) => {
     try {
-      const {
-        orderId,
-        productId,
-      } = req.params;
+      const { orderId, productId } = req.params;
 
       if (!isValidParam(orderId)) {
         return res.status(400).json({
@@ -130,27 +114,20 @@ router.patch(
         });
       }
 
-      if (
-        review !== "approved" &&
-        review !== "rejected"
-      ) {
+      if (review !== "approved" && review !== "rejected") {
         return res.status(400).json({
-          error:
-            "review must be either 'approved' or 'rejected'",
+          error: "review must be either 'approved' or 'rejected'",
         });
       }
 
       const customerIdFilter =
-        req.user!.role === "customer"
-          ? req.user!.id
-          : undefined;
+        req.user!.role === "customer" ? req.user!.id : undefined;
 
-      const item =
-        await getReturnByOrderAndProductFromDb(
-          orderId,
-          productId,
-          customerIdFilter,
-        );
+      const item = await getReturnByOrderAndProductFromDb(
+        orderId,
+        productId,
+        customerIdFilter,
+      );
 
       if (!item) {
         return res.status(404).json({
@@ -159,11 +136,7 @@ router.patch(
         });
       }
 
-      const result = await reviewReturn(
-        item.id,
-        review,
-        req.user!,
-      );
+      const result = await reviewReturn(item.id, review, req.user!);
 
       if (!result.success) {
         return res.status(403).json({
@@ -171,16 +144,14 @@ router.patch(
         });
       }
 
-      const updatedItem =
-        await getReturnByOrderAndProductFromDb(
-          orderId,
-          productId,
-          customerIdFilter,
-        );
+      const updatedItem = await getReturnByOrderAndProductFromDb(
+        orderId,
+        productId,
+        customerIdFilter,
+      );
 
       return res.status(200).json({
-        message:
-          `Return request ${review} successfully`,
+        message: `Return request ${review} successfully`,
         returnRequest: updatedItem,
       });
     } catch (error) {
@@ -195,10 +166,7 @@ router.patch(
   "/:orderId/:productId/ship",
   async (req: Request, res: Response) => {
     try {
-      const {
-        orderId,
-        productId,
-      } = req.params;
+      const { orderId, productId } = req.params;
 
       if (!isValidParam(orderId)) {
         return res.status(400).json({
@@ -213,16 +181,13 @@ router.patch(
       }
 
       const customerIdFilter =
-        req.user!.role === "customer"
-          ? req.user!.id
-          : undefined;
+        req.user!.role === "customer" ? req.user!.id : undefined;
 
-      const item =
-        await getReturnByOrderAndProductFromDb(
-          orderId,
-          productId,
-          customerIdFilter,
-        );
+      const item = await getReturnByOrderAndProductFromDb(
+        orderId,
+        productId,
+        customerIdFilter,
+      );
 
       if (!item) {
         return res.status(404).json({
@@ -231,11 +196,7 @@ router.patch(
         });
       }
 
-      const result =
-        await markReturnInTransit(
-          item.id,
-          req.user!,
-        );
+      const result = await markReturnInTransit(item.id, req.user!);
 
       if (!result.success) {
         return res.status(403).json({
@@ -243,16 +204,14 @@ router.patch(
         });
       }
 
-      const updatedItem =
-        await getReturnByOrderAndProductFromDb(
-          orderId,
-          productId,
-          customerIdFilter,
-        );
+      const updatedItem = await getReturnByOrderAndProductFromDb(
+        orderId,
+        productId,
+        customerIdFilter,
+      );
 
       return res.status(200).json({
-        message:
-          "Return marked as in transit successfully",
+        message: "Return marked as in transit successfully",
         returnRequest: updatedItem,
       });
     } catch (error) {
@@ -267,10 +226,7 @@ router.patch(
   "/:orderId/:productId/receive",
   async (req: Request, res: Response) => {
     try {
-      const {
-        orderId,
-        productId,
-      } = req.params;
+      const { orderId, productId } = req.params;
 
       if (!isValidParam(orderId)) {
         return res.status(400).json({
@@ -285,16 +241,13 @@ router.patch(
       }
 
       const customerIdFilter =
-        req.user!.role === "customer"
-          ? req.user!.id
-          : undefined;
+        req.user!.role === "customer" ? req.user!.id : undefined;
 
-      const item =
-        await getReturnByOrderAndProductFromDb(
-          orderId,
-          productId,
-          customerIdFilter,
-        );
+      const item = await getReturnByOrderAndProductFromDb(
+        orderId,
+        productId,
+        customerIdFilter,
+      );
 
       if (!item) {
         return res.status(404).json({
@@ -303,10 +256,7 @@ router.patch(
         });
       }
 
-      const result = await receiveReturn(
-        item.id,
-        req.user!,
-      );
+      const result = await receiveReturn(item.id, req.user!);
 
       if (!result.success) {
         return res.status(403).json({
@@ -314,12 +264,11 @@ router.patch(
         });
       }
 
-      const updatedItem =
-        await getReturnByOrderAndProductFromDb(
-          orderId,
-          productId,
-          customerIdFilter,
-        );
+      const updatedItem = await getReturnByOrderAndProductFromDb(
+        orderId,
+        productId,
+        customerIdFilter,
+      );
 
       return res.status(200).json({
         message: "Return received successfully",
@@ -337,10 +286,7 @@ router.post(
   "/:orderId/:productId/refund",
   async (req: Request, res: Response) => {
     try {
-      const {
-        orderId,
-        productId,
-      } = req.params;
+      const { orderId, productId } = req.params;
 
       if (!isValidParam(orderId)) {
         return res.status(400).json({
@@ -363,16 +309,13 @@ router.post(
       }
 
       const customerIdFilter =
-        req.user!.role === "customer"
-          ? req.user!.id
-          : undefined;
+        req.user!.role === "customer" ? req.user!.id : undefined;
 
-      const item =
-        await getReturnByOrderAndProductFromDb(
-          orderId,
-          productId,
-          customerIdFilter,
-        );
+      const item = await getReturnByOrderAndProductFromDb(
+        orderId,
+        productId,
+        customerIdFilter,
+      );
 
       if (!item) {
         return res.status(404).json({
@@ -381,11 +324,7 @@ router.post(
         });
       }
 
-      const result = await processRefund(
-        item.id,
-        refundAmount,
-        req.user!,
-      );
+      const result = await processRefund(item.id, refundAmount, req.user!);
 
       if (!result.success) {
         return res.status(403).json({
@@ -394,8 +333,7 @@ router.post(
       }
 
       return res.status(200).json({
-        message:
-          "Refund request created successfully",
+        message: "Refund request created successfully",
         refund: result.refund,
       });
     } catch (error) {
