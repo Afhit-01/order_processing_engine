@@ -66,7 +66,6 @@ export const returnOrder = async (
     };
   }
 
-  // getOrderById() applies the customer's ownership filter.
   const order = await getOrderById(orderId, user);
 
   if (!order) {
