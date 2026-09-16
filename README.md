@@ -31,13 +31,15 @@ src/
     returnService.ts             Return-request lifecycle: create, review, ship, receive, mark refunded
     refundService.ts             Refund lifecycle: process, complete or fail
   routes/
+    authRouter.ts              /auth route handlers
     ordersRouter.ts              /orders route handlers
     returnsRouter.ts             /return route handlers
     refundsRouter.ts             /refunds route handlers
   middleware/
     validateBody.ts              Generic body-validation middleware factory
+    requireAuth.ts             Bearer-token authentication middleware
   validation/
-    orderValidation.ts           Runtime type guards for request bodies and route params
+    validation.ts              Runtime type guards for request bodies, route params, and emails
 ```
 
 The app is layered store &rarr; service &rarr; route:
@@ -148,14 +150,19 @@ Validation functions return a typed result (`{ success: true, ... }` or `{ succe
 
 ## API Endpoints
 
+All order, return, and refund routes require an `Authorization: Bearer <token>` header. Staff-only operations are marked below.
+
 | Method | Route                                   | Behavior                                                                            |
 | ------ | --------------------------------------- | ----------------------------------------------------------------------------------- |
-| POST   | `/orders`                               | Create a new order (validated)                                                      |
-| GET    | `/orders?status=<status>`               | Filter orders by status                                                             |
-| GET    | `/orders/report`                        | Revenue and status breakdown                                                        |
-| GET    | `/orders/:orderId`                      | Fetch a single order                                                                |
-| GET    | `/orders/:orderId/total`                | Compute an order's total                                                            |
-| PATCH  | `/orders/:orderId/status`               | Transition an order's status (validated)                                            |
+| POST   | `/auth/customer/register`               | Register a customer (body: `{ "email": string, "password": string }`)               |
+| POST   | `/auth/customer/login`                  | Log in a customer and receive a JWT                                                 |
+| POST   | `/auth/staff/login`                     | Log in a staff member and receive a JWT                                             |
+| POST   | `/orders`                               | Create a new order for the authenticated customer (validated)                       |
+| GET    | `/orders?status=<status>`               | Filter the authenticated customer's orders by status                                |
+| GET    | `/orders/report`                        | Revenue and status breakdown (staff/admin only)                                     |
+| GET    | `/orders/:orderId`                      | Fetch one order accessible to the authenticated user                                |
+| GET    | `/orders/:orderId/total`                | Compute an accessible order's total                                                 |
+| PATCH  | `/orders/:orderId/status`               | Transition an order's status (staff/admin only)                                     |
 | DELETE | `/orders/:orderId`                      | Cancel an order (not a hard delete)                                                 |
 | PATCH  | `/return/:orderId/:productId/:quantity` | Submit a return request for a delivered order (body: `{ "reason": string }`)        |
 | PATCH  | `/return/:orderId/:productId/review`    | Approve or reject a return request (body: `{ "review": "approved" \| "rejected" }`) |
@@ -164,7 +171,7 @@ Validation functions return a typed result (`{ success: true, ... }` or `{ succe
 | POST   | `/return/:orderId/:productId/refund`    | Create a refund for a received return (body: `{ "refundAmount": number }`)          |
 | PATCH  | `/refunds/:refundId/complete`           | Complete or fail a pending refund (body: `{ "outcome": "completed" \| "failed" }`)  |
 
-Not yet built: `GET /return` and `GET /return/:returnId` to list or inspect return requests directly, and `GET /refunds` and `GET /refunds/:refundId` for the same on refunds. Authentication is partially implemented: customer registration and staff/customer JWT generation exist in `authService.ts`, and migration `002` adds customer and staff tables. Authentication routes, request authentication middleware, and authorization checks are not yet mounted on the API. Idempotency keys, invoice generation, and API documentation are also not yet implemented.
+Not yet built: `GET /return` and `GET /return/:returnId` to list or inspect return requests directly, and `GET /refunds` and `GET /refunds/:refundId` for the same on refunds. Authentication is implemented for the current API surface: `/auth` provides customer registration, customer login, and staff login; `/orders`, `/return`, and `/refunds` require a Bearer JWT through `requireAuth`. Customers can access their own orders, while staff and admins can update order status and view revenue reports. Idempotency keys, invoice generation, and API documentation are also not yet implemented.
 
 ## Getting Started
 
@@ -198,10 +205,19 @@ Other available commands are `npm run build` for a TypeScript build, `npm run mi
 
 ## Example Requests
 
+Log in as a customer and use the returned token for protected routes:
+
+```
+curl -X POST http://localhost:3000/auth/customer/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "customer@example.com", "password": "your-password" }'
+```
+
 Create an order:
 
 ```
 curl -X POST http://localhost:3000/orders \
+  -H "Authorization: Bearer <customer-token>" \
   -H "Content-Type: application/json" \
   -d '{
     "customerName": "Ada Lovelace",
@@ -213,6 +229,7 @@ Confirm the order:
 
 ```
 curl -X PATCH http://localhost:3000/orders/<orderId>/status \
+  -H "Authorization: Bearer <staff-token>" \
   -H "Content-Type: application/json" \
   -d '{ "status": "confirmed" }'
 ```
@@ -221,6 +238,7 @@ Request a return after delivery:
 
 ```
 curl -X PATCH http://localhost:3000/return/<orderId>/sku-1/1 \
+  -H "Authorization: Bearer <customer-token>" \
   -H "Content-Type: application/json" \
   -d '{ "reason": "Wrong size" }'
 ```
@@ -228,7 +246,8 @@ curl -X PATCH http://localhost:3000/return/<orderId>/sku-1/1 \
 Get the revenue report:
 
 ```
-curl http://localhost:3000/orders/report
+curl http://localhost:3000/orders/report \
+  -H "Authorization: Bearer <staff-token>"
 ```
 
 ## Author
