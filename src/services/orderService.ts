@@ -126,7 +126,7 @@ export const getOrderTotal = async (
   id: string,
   user: JwtPayload,
 ): Promise<number | null> => {
-  // Reuse the ownership-aware order lookup.
+  
   const customerIdFilter = user.role === "customer" ? user.id : undefined;
 
   const order = await getOrderByIdFromDb(id, customerIdFilter);

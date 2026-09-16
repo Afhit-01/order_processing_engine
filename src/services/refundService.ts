@@ -7,13 +7,25 @@ import {
 import type { Refund } from "../types.js";
 import { updateOrderStatus } from "./orderService.js";
 import { markReturnRefunded } from "./returnService.js";
+import type { JwtPayload } from "jsonwebtoken";
 
 export const processRefund = async (
   returnId: string,
   amount: number,
+  user: JwtPayload,
 ): Promise<
   { success: true; refund: Refund } | { success: false; reason: string }
 > => {
+
+  if (
+  user.role !== "staff" &&
+  user.role !== "admin"
+) {
+  return {
+    success: false,
+    reason: "Only staff or admin can process refunds",
+  };
+}
   const returnRequest = await getReturnByIdFromDB(returnId);
 
   if (!returnRequest) {

@@ -1,13 +1,28 @@
-import { getOrderByIdFromDb } from "../store/orderStore.js";
+import {
+  getOrderById,
+  updateOrderStatus,
+} from "./orderService.js";
+
 import {
   getReturnByIdFromDB,
   insertReturnRequest,
   updateReturnRequestInDB,
 } from "../store/returnStore.js";
-import { updateOrderStatus } from "./orderService.js";
-import type { Refund, ReturnStatus } from "../types.js";
 
-export const validReturnTransitions: Record<ReturnStatus, ReturnStatus[]> = {
+import {
+  getOrderByIdFromDb,
+  updateOrderStatusInDb,
+} from "../store/orderStore.js";
+
+import type {
+  ReturnStatus,
+  JwtPayload,
+} from "../types.js";
+
+export const validReturnTransitions: Record<
+  ReturnStatus,
+  ReturnStatus[]
+> = {
   pending: ["approved", "rejected"],
   approved: ["in_transit"],
   rejected: [],
@@ -16,17 +31,70 @@ export const validReturnTransitions: Record<ReturnStatus, ReturnStatus[]> = {
   refunded: [],
 };
 
+// Ownership has already been verified by returnOrder() before this function is called
+export const requestReturnOrder = async (
+  orderId: string,
+): Promise<
+  { success: true } |
+  { success: false; reason: string }
+> => {
+  const order = await getOrderByIdFromDb(orderId);
+
+  if (!order) {
+    return {
+      success: false,
+      reason: "Order not found",
+    };
+  }
+
+  if (order.status !== "delivered") {
+    return {
+      success: false,
+      reason:
+        `Cannot change order status from ${order.status} to return_requested`,
+    };
+  }
+
+  await updateOrderStatusInDb(
+    orderId,
+    "return_requested",
+  );
+
+  return {
+    success: true,
+  };
+};
+
 export const returnOrder = async (
+  user: JwtPayload,
   orderId: string,
   productId: string,
   quantity: number,
   reason: string,
 ): Promise<
-  { success: true; message: string } | { success: false; reason: string }
+  { success: true; message: string } |
+  { success: false; reason: string }
 > => {
-  const order = await getOrderByIdFromDb(orderId);
+  // Only customers can request returns.
+  if (user.role !== "customer") {
+    return {
+      success: false,
+      reason: "Only customers can request returns",
+    };
+  }
+
+  // getOrderById() applies the customer's ownership filter.
+  const order = await getOrderById(
+    orderId,
+    user,
+  );
+
   if (!order) {
-    return { success: false, reason: `Order with id ${orderId} was not found` };
+    return {
+      success: false,
+      reason:
+        `Order with id ${orderId} was not found`,
+    };
   }
 
   if (order.status !== "delivered") {
@@ -37,19 +105,40 @@ export const returnOrder = async (
     };
   }
 
-  const foundSpecificItem = order.items.some(
-    (item) => item.productId === productId,
-  );
-  if (!foundSpecificItem) {
+  if (quantity <= 0) {
     return {
       success: false,
-      reason: `Item with id ${productId} does not exist in order ${orderId}`,
+      reason: "Quantity must be greater than 0",
     };
   }
 
-  const millisecondsPerDay = 1000 * 24 * 60 * 60;
+  const item = order.items.find(
+    (item) => item.productId === productId,
+  );
+
+  if (!item) {
+    return {
+      success: false,
+      reason:
+        `Item with id ${productId} does not exist in order ${orderId}`,
+    };
+  }
+
+  if (quantity > item.quantity) {
+    return {
+      success: false,
+      reason:
+        "Return quantity cannot exceed the quantity ordered",
+    };
+  }
+
+  const millisecondsPerDay =
+    1000 * 24 * 60 * 60;
+
   const daysSinceCreated = Math.floor(
-    (Date.now() - new Date(order.createdAt).getTime()) / millisecondsPerDay,
+    (Date.now() -
+      new Date(order.createdAt).getTime()) /
+      millisecondsPerDay,
   );
 
   if (daysSinceCreated > 30) {
@@ -60,129 +149,251 @@ export const returnOrder = async (
     };
   }
 
-  await insertReturnRequest(orderId, productId, quantity, reason);
+  await insertReturnRequest(
+    orderId,
+    productId,
+    quantity,
+    reason,
+  );
 
-  const statusResult = await updateOrderStatus(orderId, "return_requested");
-  if (!statusResult.success)
-    return {
-      success: statusResult.success,
-      reason: statusResult.reason,
-    };
+  // Ownership was already established by getOrderById(orderId, user).
+  const statusResult =
+    await requestReturnOrder(orderId);
+
+  if (!statusResult.success) {
+    return statusResult;
+  }
 
   return {
     success: true,
-    message: "Your return request has been received and is under review",
+    message:
+      "Your return request has been received and is under review",
   };
 };
 
 export const reviewReturn = async (
   returnId: string,
   decision: "approved" | "rejected",
-): Promise<{ success: true } | { success: false; reason: string }> => {
-  const returnRequest = await getReturnByIdFromDB(returnId);
+  user: JwtPayload,
+): Promise<
+  { success: true } |
+  { success: false; reason: string }
+> => {
+  // Reviewing returns is a staff/admin operation.
+  if (
+    user.role !== "staff" &&
+    user.role !== "admin"
+  ) {
+    return {
+      success: false,
+      reason:
+        "Only staff or admin can review return requests",
+    };
+  }
+
+  // Staff/admin can access return requests across customers.
+  const returnRequest =
+    await getReturnByIdFromDB(returnId);
 
   if (!returnRequest) {
     return {
       success: false,
-      reason: `Return request with id ${returnId} does not exist`,
+      reason:
+        `Return request with id ${returnId} does not exist`,
     };
   }
 
   const isValid =
-    validReturnTransitions[returnRequest.status].includes(decision);
+    validReturnTransitions[
+      returnRequest.status
+    ].includes(decision);
 
   if (!isValid) {
     return {
       success: false,
-      reason: `Cannot move from ${returnRequest.status} to ${decision}`,
+      reason:
+        `Cannot move from ${returnRequest.status} to ${decision}`,
     };
   }
 
-  await updateReturnRequestInDB(returnId, decision);
+  await updateReturnRequestInDB(
+    returnId,
+    decision,
+  );
+
   if (decision === "rejected") {
-    const orderResult = await updateOrderStatus(
-      returnRequest.orderId,
-      "delivered",
-    );
-    if (!orderResult.success) return orderResult;
+    const orderResult =
+      await updateOrderStatus(
+        returnRequest.orderId,
+        "delivered",
+        user,
+      );
+
+    if (!orderResult.success) {
+      return orderResult;
+    }
   }
-  return { success: true };
+
+  return {
+    success: true,
+  };
 };
 
 export const markReturnInTransit = async (
   returnId: string,
-): Promise<{ success: true } | { success: false; reason: string }> => {
-  const returnRequest = await getReturnByIdFromDB(returnId);
+  user: JwtPayload,
+): Promise<
+  { success: true } |
+  { success: false; reason: string }
+> => {
+  // Only staff/admin can move returns into transit.
+  if (
+    user.role !== "staff" &&
+    user.role !== "admin"
+  ) {
+    return {
+      success: false,
+      reason:
+        "Only staff or admin can mark returns as in transit",
+    };
+  }
+
+  const returnRequest =
+    await getReturnByIdFromDB(returnId);
 
   if (!returnRequest) {
     return {
       success: false,
-      reason: `Return request with id ${returnId} does not exist`,
+      reason:
+        `Return request with id ${returnId} does not exist`,
     };
   }
 
   const isValid =
-    validReturnTransitions[returnRequest.status].includes("in_transit");
+    validReturnTransitions[
+      returnRequest.status
+    ].includes("in_transit");
 
   if (!isValid) {
     return {
       success: false,
-      reason: `Cannot move from ${returnRequest.status} to in_transit`,
+      reason:
+        `Cannot move from ${returnRequest.status} to in_transit`,
     };
   }
 
-  await updateReturnRequestInDB(returnId, "in_transit");
-  return { success: true };
+  await updateReturnRequestInDB(
+    returnId,
+    "in_transit",
+  );
+
+  return {
+    success: true,
+  };
 };
 
 export const receiveReturn = async (
   returnId: string,
-): Promise<{ success: true } | { success: false; reason: string }> => {
-  const returnRequest = await getReturnByIdFromDB(returnId);
+  user: JwtPayload,
+): Promise<
+  { success: true } |
+  { success: false; reason: string }
+> => {
+  // Only staff/admin can receive returns.
+  if (
+    user.role !== "staff" &&
+    user.role !== "admin"
+  ) {
+    return {
+      success: false,
+      reason:
+        "Only staff or admin can receive returns",
+    };
+  }
+
+  const returnRequest =
+    await getReturnByIdFromDB(returnId);
 
   if (!returnRequest) {
     return {
       success: false,
-      reason: `Return request with id ${returnId} does not exist`,
+      reason:
+        `Return request with id ${returnId} does not exist`,
     };
   }
 
   const isValid =
-    validReturnTransitions[returnRequest.status].includes("received");
+    validReturnTransitions[
+      returnRequest.status
+    ].includes("received");
 
   if (!isValid) {
     return {
       success: false,
-      reason: `Cannot move from ${returnRequest.status} to received`,
+      reason:
+        `Cannot move from ${returnRequest.status} to received`,
     };
   }
 
-  await updateReturnRequestInDB(returnId, "received");
-  return { success: true };
+  await updateReturnRequestInDB(
+    returnId,
+    "received",
+  );
+
+  return {
+    success: true,
+  };
 };
 
 export const markReturnRefunded = async (
   returnId: string,
-): Promise<{ success: true } | { success: false; reason: string }> => {
-  const returnRequest = await getReturnByIdFromDB(returnId);
+  user: JwtPayload,
+): Promise<
+  { success: true } |
+  { success: false; reason: string }
+> => {
+  // Only staff/admin can mark returns as refunded.
+  if (
+    user.role !== "staff" &&
+    user.role !== "admin"
+  ) {
+    return {
+      success: false,
+      reason:
+        "Only staff or admin can mark returns as refunded",
+    };
+  }
+
+  const returnRequest =
+    await getReturnByIdFromDB(returnId);
 
   if (!returnRequest) {
     return {
       success: false,
-      reason: `Return request with id ${returnId} does not exit`,
+      reason:
+        `Return request with id ${returnId} does not exist`,
     };
   }
 
   const isValid =
-    validReturnTransitions[returnRequest.status].includes("refunded");
+    validReturnTransitions[
+      returnRequest.status
+    ].includes("refunded");
 
   if (!isValid) {
     return {
       success: false,
-      reason: `Cannot move from ${returnRequest.status} to refunded`,
+      reason:
+        `Cannot move from ${returnRequest.status} to refunded`,
     };
   }
 
-  await updateReturnRequestInDB(returnId, "refunded");
-  return { success: true };
+  await updateReturnRequestInDB(
+    returnId,
+    "refunded",
+  );
+
+  return {
+    success: true,
+  };
 };
