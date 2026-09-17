@@ -23,7 +23,7 @@ export const loginStaff = async (
   if (!staff) {
     return {
       success: false,
-      reason: "Staff doesn't exist",
+      reason: "Invalid credentials",
     };
   }
 
