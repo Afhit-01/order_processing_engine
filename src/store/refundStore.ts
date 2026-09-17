@@ -8,12 +8,28 @@ export const insertRefund = async (
   amount: number,
 ): Promise<Refund> => {
   const client = await pool.connect();
+
   try {
     const query = `
-      INSERT INTO refunds (return_request_id, order_id, product_id, amount, status)
+      INSERT INTO refunds (
+        return_request_id,
+        order_id,
+        product_id,
+        amount,
+        status
+      )
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, return_request_id, order_id, product_id, amount, status, requested_at, completed_at;
+      RETURNING
+        id,
+        return_request_id,
+        order_id,
+        product_id,
+        amount,
+        status,
+        requested_at,
+        completed_at;
     `;
+
     const result = await client.query(query, [
       returnRequestId,
       orderId,
@@ -21,6 +37,7 @@ export const insertRefund = async (
       amount,
       "pending",
     ]);
+
     const row = result.rows[0];
 
     return {
@@ -42,17 +59,29 @@ export const getRefundByIdFromDB = async (
   refundID: string,
 ): Promise<Refund | null> => {
   const client = await pool.connect();
+
   try {
     const query = `
-        SELECT return_request_id, order_id, product_id, amount, status, requested_at, completed_at
-        FROM refunds WHERE id=$1;
-        `;
+      SELECT
+        return_request_id,
+        order_id,
+        product_id,
+        amount,
+        status,
+        requested_at,
+        completed_at
+      FROM refunds
+      WHERE id = $1;
+    `;
 
     const result = await client.query(query, [refundID]);
 
-    if (result.rowCount === 0) return null;
+    if (result.rowCount === 0) {
+      return null;
+    }
 
     const row = result.rows[0];
+
     return {
       id: refundID,
       returnRequestId: row.return_request_id,
@@ -74,13 +103,132 @@ export const updateRefundStatusInDb = async (
   completedAt: string | null = null,
 ): Promise<void> => {
   const client = await pool.connect();
+
   try {
     const query = `
-      UPDATE refunds 
-      SET status = $1, completed_at = $2 
+      UPDATE refunds
+      SET
+        status = $1,
+        completed_at = $2
       WHERE id = $3;
     `;
+
     await client.query(query, [status, completedAt, id]);
+  } finally {
+    client.release();
+  }
+};
+
+export const completeRefundTransaction = async (
+  refundId: string,
+  returnRequestId: string,
+  orderId: string,
+  completedAt: string,
+): Promise<void> => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const refundResult = await client.query(
+      `
+        SELECT status
+        FROM refunds
+        WHERE id = $1
+        FOR UPDATE;
+      `,
+      [refundId],
+    );
+
+    if (refundResult.rowCount === 0) {
+      throw new Error("Refund not found");
+    }
+
+    const returnResult = await client.query(
+      `
+        SELECT status
+        FROM return_requests
+        WHERE id = $1
+        FOR UPDATE;
+      `,
+      [returnRequestId],
+    );
+
+    if (returnResult.rowCount === 0) {
+      throw new Error("Return request not found");
+    }
+
+    const orderResult = await client.query(
+      `
+        SELECT status
+        FROM orders
+        WHERE id = $1
+        FOR UPDATE;
+      `,
+      [orderId],
+    );
+
+    if (orderResult.rowCount === 0) {
+      throw new Error("Order not found");
+    }
+
+    const refundStatus = refundResult.rows[0].status;
+    const returnStatus = returnResult.rows[0].status;
+    const orderStatus = orderResult.rows[0].status;
+
+    //Re-check the state inside the transaction to protect against stale data and concurrent requests even if the service checked the states earlier.
+
+    if (refundStatus !== "pending") {
+      throw new Error(
+        `Cannot complete a refund already at status ${refundStatus}`,
+      );
+    }
+
+    if (returnStatus !== "received") {
+      throw new Error(
+        `Cannot mark a return as refunded from status ${returnStatus}`,
+      );
+    }
+
+    if (orderStatus !== "return_requested") {
+      throw new Error(
+        `Cannot mark an order as returned from status ${orderStatus}`,
+      );
+    }
+
+    await client.query(
+      `
+        UPDATE return_requests
+        SET status = $1
+        WHERE id = $2;
+      `,
+      ["refunded", returnRequestId],
+    );
+
+    await client.query(
+      `
+        UPDATE orders
+        SET status = $1
+        WHERE id = $2;
+      `,
+      ["returned", orderId],
+    );
+
+    await client.query(
+      `
+        UPDATE refunds
+        SET
+          status = $1,
+          completed_at = $2
+        WHERE id = $3;
+      `,
+      ["completed", completedAt, refundId],
+    );
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
   } finally {
     client.release();
   }

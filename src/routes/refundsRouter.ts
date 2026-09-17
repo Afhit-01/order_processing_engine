@@ -3,6 +3,7 @@ import { completeRefund } from "../services/refundService.js";
 import { getRefundByIdFromDB } from "../store/refundStore.js";
 import { isValidParam } from "../validation/validation.js";
 import { requireAuth } from "../middleware/requireAuth.js";
+import type { JwtPayload } from "../types.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -30,7 +31,7 @@ router.patch("/:refundId/complete", async (req: Request, res: Response) => {
       });
     }
 
-    const result = await completeRefund(refundId, outcome);
+    const result = await completeRefund(refundId, outcome, req.user!);
 
     if (!result.success) {
       return res.status(400).json({

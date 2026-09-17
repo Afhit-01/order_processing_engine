@@ -1,13 +1,13 @@
 import { getReturnByIdFromDB } from "../store/returnStore.js";
+
 import {
   getRefundByIdFromDB,
   insertRefund,
   updateRefundStatusInDb,
+  completeRefundTransaction,
 } from "../store/refundStore.js";
-import type { Refund } from "../types.js";
-import { updateOrderStatus } from "./orderService.js";
-import { markReturnRefunded } from "./returnService.js";
-import type { JwtPayload } from "jsonwebtoken";
+
+import type { Refund, JwtPayload } from "../types.js";
 
 export const processRefund = async (
   returnId: string,
@@ -22,12 +22,13 @@ export const processRefund = async (
       reason: "Only staff or admin can process refunds",
     };
   }
+
   const returnRequest = await getReturnByIdFromDB(returnId);
 
   if (!returnRequest) {
     return {
       success: false,
-      reason: `Return request with id ${returnId} does not exist`, // fixed typo here
+      reason: `Return request with id ${returnId} does not exist`,
     };
   }
 
@@ -41,7 +42,7 @@ export const processRefund = async (
   if (amount <= 0) {
     return {
       success: false,
-      reason: `Refund amount must be greater than 0`,
+      reason: "Refund amount must be greater than 0",
     };
   }
 
@@ -52,13 +53,24 @@ export const processRefund = async (
     amount,
   );
 
-  return { success: true, refund };
+  return {
+    success: true,
+    refund,
+  };
 };
 
 export const completeRefund = async (
   refundId: string,
   outcome: "completed" | "failed",
+  user: JwtPayload,
 ): Promise<{ success: true } | { success: false; reason: string }> => {
+  if (user.role !== "staff" && user.role !== "admin") {
+    return {
+      success: false,
+      reason: "Only staff or admin can complete refunds",
+    };
+  }
+
   const refund = await getRefundByIdFromDB(refundId);
 
   if (!refund) {
@@ -77,23 +89,36 @@ export const completeRefund = async (
 
   if (outcome === "failed") {
     await updateRefundStatusInDb(refundId, "failed");
-    return { success: true };
+
+    return {
+      success: true,
+    };
   }
 
-  const returnResult = await markReturnRefunded(refund.returnRequestId);
+  try {
+    const completedTime = new Date().toISOString();
 
-  if (!returnResult.success) {
-    return returnResult;
+    await completeRefundTransaction(
+      refundId,
+      refund.returnRequestId,
+      refund.orderId,
+      completedTime,
+    );
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      return {
+        success: false,
+        reason: error.message,
+      };
+    }
+
+    return {
+      success: false,
+      reason: "Failed to complete refund",
+    };
   }
-
-  const orderResult = await updateOrderStatus(refund.orderId, "returned");
-
-  if (!orderResult.success) {
-    return orderResult;
-  }
-
-  const completedTime = new Date().toISOString();
-  await updateRefundStatusInDb(refundId, "completed", completedTime);
-
-  return { success: true };
 };
