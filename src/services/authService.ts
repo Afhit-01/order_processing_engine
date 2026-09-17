@@ -72,7 +72,7 @@ export const registerCustomer = async (
       success: true,
       message: `Customer with email ${newCustomer.email} has been registered successfully`,
     };
-  } catch (error) {
+  } catch {
     return {
       success: false,
       reason: "Customer already exists or registration failed",

@@ -3,7 +3,6 @@ import { completeRefund } from "../services/refundService.js";
 import { getRefundByIdFromDB } from "../store/refundStore.js";
 import { isValidParam } from "../validation/validation.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import type { JwtPayload } from "../types.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -48,7 +47,7 @@ router.patch("/:refundId/complete", async (req: Request, res: Response) => {
           : "Refund marked as failed",
       refund,
     });
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: "Internal server error" });
   }
 });

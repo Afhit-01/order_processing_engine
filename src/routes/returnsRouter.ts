@@ -74,7 +74,7 @@ router.patch(
       return res.status(200).json({
         message: result.message,
       });
-    } catch (error) {
+    } catch {
       return res.status(500).json({
         error: "Internal server error",
       });
@@ -154,7 +154,7 @@ router.patch(
         message: `Return request ${review} successfully`,
         returnRequest: updatedItem,
       });
-    } catch (error) {
+    } catch {
       return res.status(500).json({
         error: "Internal server error",
       });
@@ -214,7 +214,7 @@ router.patch(
         message: "Return marked as in transit successfully",
         returnRequest: updatedItem,
       });
-    } catch (error) {
+    } catch {
       return res.status(500).json({
         error: "Internal server error",
       });
@@ -274,7 +274,7 @@ router.patch(
         message: "Return received successfully",
         returnRequest: updatedItem,
       });
-    } catch (error) {
+    } catch {
       return res.status(500).json({
         error: "Internal server error",
       });
@@ -336,7 +336,7 @@ router.post(
         message: "Refund request created successfully",
         refund: result.refund,
       });
-    } catch (error) {
+    } catch {
       return res.status(500).json({
         error: "Internal server error",
       });

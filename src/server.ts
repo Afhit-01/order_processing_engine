@@ -28,7 +28,7 @@ app.use("/return", returnsRouter);
 app.use("/refunds", refundsRouter);
 app.use("/auth", authRouter);
 
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
   console.log(err);
   res.status(500).json({ error: "Something went wrong" });
 });
