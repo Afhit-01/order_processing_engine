@@ -74,7 +74,7 @@ The API uses JWT-based authentication.
 Authenticated requests contain a decoded JWT payload available through:
 
 ```ts
-req.user
+req.user;
 ```
 
 The payload contains information such as:
