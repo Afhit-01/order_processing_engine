@@ -1,6 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
 import pool from "../db/client.js";
-import type { IdempotencyRecord } from "../types.js";
 
 export const checkIdempotency = async (
   req: Request,
@@ -16,6 +15,7 @@ export const checkIdempotency = async (
   }
 
   try {
+    // Check if we have seen this key before
     const query = `
       SELECT * FROM idempotency_keys
       WHERE user_id = $1
@@ -24,7 +24,7 @@ export const checkIdempotency = async (
     const result = await pool.query(query, [req.user!.id, idempotencyKey]);
 
     if (result.rowCount !== 0) {
-      const row: IdempotencyRecord = result.rows[0];
+      const row = result.rows[0];
 
       if (row.status === "in_progress") {
         return res.status(409).json({
@@ -33,14 +33,12 @@ export const checkIdempotency = async (
       }
 
       if (row.status === "completed") {
-        // Fallback to 200 if for some reason it is null
         const statusCode = row.response_code ?? 200;
         return res.status(statusCode).json(row.response_body);
       }
     }
 
-    // If we reach here, it is a new request. Huh...?
-
+    // 2. If the key is new, register it as 'in_progress' to lock it
     const insertQuery = `
       INSERT INTO idempotency_keys (idempotency_key, user_id, request_path, request_method)
       VALUES ($1, $2, $3, $4);
@@ -54,7 +52,28 @@ export const checkIdempotency = async (
 
     const originalJson = res.json;
 
-    // (Interceptor logic will go here)
+    res.json = function (body) {
+      res.json = originalJson;
+
+      const updateQuery = `
+        UPDATE idempotency_keys
+        SET response_code = $1, response_body = $2, status = 'completed'
+        WHERE idempotency_key = $3 AND user_id = $4;
+      `;
+
+      const updatePromise = pool.query(updateQuery, [
+        res.statusCode,
+        body,
+        idempotencyKey,
+        req.user!.id,
+      ]);
+
+      updatePromise.catch((err) => {
+        console.error("Idempotency update error:", err);
+      });
+
+      return originalJson.call(this, body);
+    };
 
     next();
   } catch (error) {
