@@ -14,6 +14,7 @@ import { getReturnByOrderAndProductFromDb } from "../store/returnStore.js";
 import { processRefund } from "../services/refundService.js";
 
 import { requireAuth } from "../middleware/requireAuth.js";
+import { checkIdempotency } from "../middleware/idempotency.js";
 
 const router = Router();
 
@@ -284,6 +285,7 @@ router.patch(
 
 router.post(
   "/:orderId/:productId/refund",
+  checkIdempotency,
   async (req: Request, res: Response) => {
     try {
       const { orderId, productId } = req.params;

@@ -20,6 +20,7 @@ import {
 
 import { validateBody } from "../middleware/validateBody.js";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { checkIdempotency } from "../middleware/idempotency.js";
 
 const router = Router();
 
@@ -27,6 +28,7 @@ router.use(requireAuth);
 
 router.post(
   "/",
+  checkIdempotency,
   validateBody(isCreateOrderPayload),
   async (req: Request, res: Response) => {
     if (!isCreateOrderPayload(req.body)) {
