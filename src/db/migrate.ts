@@ -9,14 +9,20 @@ const __dirname = path.dirname(__filename);
 const runMigration = async () => {
   const direction = process.argv[2];
 
-  const upMigrations = ["001_initial_scheme_up.sql", "002_add_auth_up.sql"];
+  const upMigrations = [
+    "001_initial_scheme_up.sql",
+    "002_add_auth_up.sql",
+    "003_add_idempotency_up.sql",
+  ];
 
   const downMigrations = [
+    "003_add_idempotency_down.sql",
     "002_add_auth_down.sql",
     "001_initial_scheme_down.sql",
   ];
 
   let filesToRun: string[] = [];
+  
   if (direction === "up") {
     filesToRun = upMigrations;
   } else if (direction === "down") {
