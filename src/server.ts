@@ -4,6 +4,7 @@ import express, {
   type Request,
   type Response,
 } from "express";
+import { authLimiter, apiLimiter } from "./middleware/rateLimiter.js";
 import ordersRouter from "./routes/ordersRouter.js";
 import returnsRouter from "./routes/returnsRouter.js";
 import refundsRouter from "./routes/refundsRouter.js";
@@ -23,10 +24,10 @@ app.get("/", (req: Request, res: Response) => {
   res.status(200).send("Wanna test the order management system? see /orders");
 });
 
-app.use("/orders", ordersRouter);
-app.use("/return", returnsRouter);
-app.use("/refunds", refundsRouter);
-app.use("/auth", authRouter);
+app.use("/auth", authLimiter,authRouter);
+app.use("/orders", apiLimiter, ordersRouter);
+app.use("/return", apiLimiter, returnsRouter);
+app.use("/refunds", apiLimiter, refundsRouter);
 
 app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
   console.log(err);
