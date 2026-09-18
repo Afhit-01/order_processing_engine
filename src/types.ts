@@ -67,3 +67,14 @@ export interface JwtPayload {
   id: string;
   role: "admin" | "staff" | "customer";
 }
+
+export interface IdempotencyRecord {
+  idempotency_key: string;
+  user_id: string;
+  request_path: string;
+  request_method: string;
+  response_code: number | null;
+  response_body: Record<string, unknown> | null;
+  status: "in_progress" | "completed";
+  created_at: Date;
+}
