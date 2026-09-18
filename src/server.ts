@@ -24,7 +24,7 @@ app.get("/", (req: Request, res: Response) => {
   res.status(200).send("Wanna test the order management system? see /orders");
 });
 
-app.use("/auth", authLimiter,authRouter);
+app.use("/auth", authLimiter, authRouter);
 app.use("/orders", apiLimiter, ordersRouter);
 app.use("/return", apiLimiter, returnsRouter);
 app.use("/refunds", apiLimiter, refundsRouter);

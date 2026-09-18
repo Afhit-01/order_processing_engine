@@ -22,7 +22,7 @@ const runMigration = async () => {
   ];
 
   let filesToRun: string[] = [];
-  
+
   if (direction === "up") {
     filesToRun = upMigrations;
   } else if (direction === "down") {
