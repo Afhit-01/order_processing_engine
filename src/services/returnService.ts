@@ -4,6 +4,7 @@ import {
   getReturnByIdFromDB,
   insertReturnRequest,
   updateReturnRequestInDB,
+  getReturnsFromDb
 } from "../store/returnStore.js";
 
 import {
@@ -11,7 +12,7 @@ import {
   updateOrderStatusInDb,
 } from "../store/orderStore.js";
 
-import type { ReturnStatus, JwtPayload } from "../types.js";
+import type { ReturnStatus, JwtPayload, ReturnRequest } from "../types.js";
 
 export const validReturnTransitions: Record<ReturnStatus, ReturnStatus[]> = {
   pending: ["approved", "rejected"],
@@ -20,6 +21,19 @@ export const validReturnTransitions: Record<ReturnStatus, ReturnStatus[]> = {
   in_transit: ["received"],
   received: ["refunded"],
   refunded: [],
+};
+
+export const getReturns = async (user: JwtPayload): Promise<ReturnRequest[]> => {
+  const customerIdFilter = user.role === "customer" ? user.id : undefined;
+  return await getReturnsFromDb(customerIdFilter);
+};
+
+export const getReturnById = async (
+  id: string,
+  user: JwtPayload,
+): Promise<ReturnRequest | null> => {
+  const customerIdFilter = user.role === "customer" ? user.id : undefined;
+  return await getReturnByIdFromDB(id, customerIdFilter);
 };
 
 // Ownership has already been verified by returnOrder() before this function is called

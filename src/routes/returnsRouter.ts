@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from "express";
 
 import {
+  getReturnById,
+  getReturns,
   markReturnInTransit,
   receiveReturn,
   returnOrder,
@@ -19,6 +21,31 @@ import { checkIdempotency } from "../middleware/idempotency.js";
 const router = Router();
 
 router.use(requireAuth);
+
+router.get("/", async (req: Request, res: Response) => {
+  const returns = await getReturns(req.user!);
+  return res.status(200).json(returns);
+});
+
+router.get("/:returnId", async (req: Request, res: Response) => {
+  const { returnId } = req.params;
+
+  if (!isValidParam(returnId)) {
+    return res.status(400).json({
+      error: "returnId must be provided",
+    });
+  }
+
+  const returnRequest = await getReturnById(returnId, req.user!);
+
+  if (!returnRequest) {
+    return res.status(404).json({
+      error: "Return request not found",
+    });
+  }
+
+  return res.status(200).json(returnRequest);
+});
 
 router.patch(
   "/:orderId/:productId/:quantity",
