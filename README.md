@@ -16,6 +16,8 @@ The project started as an in-memory order management system and has been extende
 - PostgreSQL
 - JSON Web Tokens (JWT)
 - bcrypt
+- helmet
+- express-rate-limit
 - REST API
 
 ## Architecture
@@ -130,6 +132,51 @@ This prevents one customer from retrieving another customer's order simply by ch
 
 For staff and admin operations, the application can intentionally omit the customer filter when the role is authorized to access records across customers.
 
+## Auth Endpoints
+
+### Register a customer
+
+```http
+POST /auth/customer/register
+```
+
+```json
+{
+  "email": "ada@example.com",
+  "password": "a-strong-password"
+}
+```
+
+### Customer login
+
+```http
+POST /auth/customer/login
+```
+
+```json
+{
+  "email": "ada@example.com",
+  "password": "a-strong-password"
+}
+```
+
+### Staff login
+
+```http
+POST /auth/staff/login
+```
+
+```json
+{
+  "email": "staff@example.com",
+  "password": "a-strong-password"
+}
+```
+
+There is no public staff registration endpoint. Staff accounts are created through the seed script (`npm run seed`), which reads `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` from the environment.
+
+Both login routes return a signed JWT on success, to be sent as `Authorization: Bearer <token>` on subsequent requests. Login failures return a generic `Invalid credentials` message regardless of whether the email or the password was wrong, so a failed request never reveals whether a given email is registered.
+
 ## Order Status
 
 Orders use the following statuses:
@@ -240,7 +287,6 @@ Example body:
 
 ```json
 {
-  "customerName": "Customer",
   "items": [
     {
       "productId": "product-1",
@@ -251,6 +297,8 @@ Example body:
   ]
 }
 ```
+
+The `customerId` is taken from the authenticated JWT, not from the request body.
 
 ### Get orders by status
 
@@ -478,6 +526,51 @@ and the associated order is moved to:
 returned
 ```
 
+## Idempotency
+
+Requests that create or mutate state can be retried safely by sending an `Idempotency-Key` header. This matters for network retries and accidental double-submits, where the same logical request might otherwise be executed twice.
+
+Idempotency is enforced on:
+
+```text
+POST   /orders
+POST   /return/:orderId/:productId/refund
+PATCH  /refunds/:refundId/complete
+```
+
+### How it works
+
+The key is claimed atomically, per user, before the request is handled:
+
+```sql
+INSERT INTO idempotency_keys (idempotency_key, user_id, request_path, request_method)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (user_id, idempotency_key) DO NOTHING
+RETURNING id;
+```
+
+Because the insert and the conflict check happen as a single atomic database operation, two requests carrying the same key that arrive at nearly the same moment cannot both proceed, one of them will always lose the `INSERT` and fall through to the lookup below instead.
+
+If the insert claims the row, the request proceeds normally, and the response is recorded against that row once the handler finishes.
+
+If the insert does not claim the row, either this key was already used, or another request with the same key is being processed right now, the existing row is checked:
+
+- `in_progress` &rarr; the request is rejected with `409 Conflict`, since a matching request is already being handled.
+- `completed` &rarr; the original response is returned unchanged, with its original status code, rather than re-running the operation.
+
+The uniqueness constraint on `(user_id, idempotency_key)` is scoped per user rather than global. Two different users are free to use the same key value without colliding with each other.
+
+## Rate Limiting
+
+Two limiters are applied, both in-memory for now:
+
+```text
+authLimiter   10 requests  / 15 minutes  →  /auth
+apiLimiter    80 requests  / 15 minutes  →  /orders, /return, /refunds
+```
+
+`/auth` is limited more tightly than the rest of the API, since it is the route most worth protecting against brute-force credential guessing.
+
 ## Validation
 
 The application performs validation at multiple levels.
@@ -584,22 +677,35 @@ A simplified project structure:
 ```text
 src/
 ├── db/
-│   └── client.ts
+│   ├── client.ts
+│   ├── migrate.ts
+│   ├── seed.ts
+│   └── migrations/
+│       ├── 001_initial_scheme_up.sql / _down.sql
+│       ├── 002_add_auth_up.sql / _down.sql
+│       ├── 003_add_idempotency_up.sql / _down.sql
+│       └── 004_fix_idempotency_constraint_up.sql / _down.sql
 │
 ├── middleware/
 │   ├── requireAuth.ts
+│   ├── idempotency.ts
+│   ├── rateLimiter.ts
 │   └── validateBody.ts
 │
 ├── routes/
+│   ├── authRouter.ts
 │   ├── ordersRouter.ts
-│   └── returnsRouter.ts
+│   ├── returnsRouter.ts
+│   └── refundsRouter.ts
 │
 ├── services/
+│   ├── authService.ts
 │   ├── orderService.ts
 │   ├── returnService.ts
 │   └── refundService.ts
 │
 ├── store/
+│   ├── authStore.ts
 │   ├── orderStore.ts
 │   ├── returnStore.ts
 │   └── refundStore.ts
@@ -610,6 +716,8 @@ src/
 ├── server.ts
 ├── types.ts
 └── returnLogic.ts
+
+eslint.config.js
 ```
 
 ## Design Principles Demonstrated
@@ -629,14 +737,14 @@ The project demonstrates several backend concepts:
 - Parameterized SQL
 - Database transactions
 - Relational data modeling
+- Idempotent request handling
+- Rate limiting
 - Error handling
 - Separation of concerns
 
 ## Current Scope
 
-The current implementation focuses on the backend API.
-
-A frontend is planned as a future addition.
+The current implementation focuses on the backend API. Authentication, data isolation, order/return/refund lifecycles, and idempotent request handling are in place. Automated tests, invoice generation, and API documentation are planned next. A frontend is planned as a future addition.
 
 ## Author
 
