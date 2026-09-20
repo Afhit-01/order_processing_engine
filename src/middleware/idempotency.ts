@@ -15,43 +15,40 @@ export const checkIdempotency = async (
   }
 
   try {
-  
-    const insertQuery = `
-      INSERT INTO idempotency_keys (idempotency_key, user_id, request_path, request_method)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (user_id, idempotency_key) DO NOTHING
-      RETURNING id;
+    // Check if we have seen this key before
+    const query = `
+      SELECT * FROM idempotency_keys
+      WHERE user_id = $1
+      AND idempotency_key = $2;
     `;
-    const insertResult = await pool.query(insertQuery, [
-      idempotencyKey,
-      req.user!.id,
-      req.path,
-      req.method,
-    ]);
+    const result = await pool.query(query, [req.user!.id, idempotencyKey]);
 
-    if (insertResult.rowCount === 0) {
-      // We lost the race, or this key was already used earlier. Either way, look at the existing row to decide what to tell the caller.
-      const existingQuery = `
-        SELECT status, response_code, response_body FROM idempotency_keys
-        WHERE user_id = $1 AND idempotency_key = $2;
-      `;
-      const existing = await pool.query(existingQuery, [
-        req.user!.id,
-        idempotencyKey,
-      ]);
-      const row = existing.rows[0];
+    if (result.rowCount !== 0) {
+      const row = result.rows[0];
 
-      if (row?.status === "in_progress") {
+      if (row.status === "in_progress") {
         return res.status(409).json({
           error: "A concurrent request is already being processed",
         });
       }
 
-      if (row?.status === "completed") {
+      if (row.status === "completed") {
         const statusCode = row.response_code ?? 200;
         return res.status(statusCode).json(row.response_body);
       }
     }
+
+    // 2. If the key is new, register it as 'in_progress' to lock it
+    const insertQuery = `
+      INSERT INTO idempotency_keys (idempotency_key, user_id, request_path, request_method)
+      VALUES ($1, $2, $3, $4);
+    `;
+    await pool.query(insertQuery, [
+      idempotencyKey,
+      req.user!.id,
+      req.path,
+      req.method,
+    ]);
 
     const originalJson = res.json;
 
@@ -84,4 +81,3 @@ export const checkIdempotency = async (
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-

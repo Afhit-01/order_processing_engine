@@ -13,11 +13,9 @@ const runMigration = async () => {
     "001_initial_scheme_up.sql",
     "002_add_auth_up.sql",
     "003_add_idempotency_up.sql",
-    "004_fix_idempotency_constraint_up.sql",
   ];
 
   const downMigrations = [
-    "004_fix_idempotency_constraint_down.sql",
     "003_add_idempotency_down.sql",
     "002_add_auth_down.sql",
     "001_initial_scheme_down.sql",
