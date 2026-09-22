@@ -57,24 +57,37 @@ export const insertRefund = async (
 
 export const getRefundByIdFromDB = async (
   refundID: string,
+  customerId?: string,
 ): Promise<Refund | null> => {
   const client = await pool.connect();
 
   try {
-    const query = `
+    let query = `
       SELECT
-        return_request_id,
-        order_id,
-        product_id,
-        amount,
-        status,
-        requested_at,
-        completed_at
+        refunds.id,
+        refunds.return_request_id,
+        refunds.order_id,
+        refunds.product_id,
+        refunds.amount,
+        refunds.status,
+        refunds.requested_at,
+        refunds.completed_at
       FROM refunds
-      WHERE id = $1;
+      JOIN orders
+        ON refunds.order_id = orders.id
+      WHERE refunds.id = $1
     `;
 
-    const result = await client.query(query, [refundID]);
+    const queryParams: string[] = [refundID];
+
+    if (customerId) {
+      query += `AND orders.customer_id = $2`;
+      queryParams.push(customerId);
+    }
+
+    query += ";";
+
+    const result = await client.query(query, queryParams);
 
     if (result.rowCount === 0) {
       return null;
@@ -83,7 +96,7 @@ export const getRefundByIdFromDB = async (
     const row = result.rows[0];
 
     return {
-      id: refundID,
+      id: row.id,
       returnRequestId: row.return_request_id,
       orderId: row.order_id,
       productId: row.product_id,
@@ -244,15 +257,15 @@ export const getRefundsFromDB = async (
     SELECT refunds.id, refunds.return_request_id,
     refunds.order_id, refunds.product_id,
     refunds.amount, refunds.status,
-    refunds.requested_at, refunds.created_at
+    refunds.requested_at, refunds.completed_at
     FROM refunds
     JOIN orders
-    ON refund.order_id = orders.id`;
+    ON refunds.order_id = orders.id`;
 
     const queryParams: string[] = [];
 
     if (customerId) {
-      query += `WHERE orders.customer_id = $1`;
+      query += ` WHERE orders.customer_id = $1`;
       queryParams.push(customerId);
     }
 
@@ -262,11 +275,11 @@ export const getRefundsFromDB = async (
 
     return result.rows.map((row) => ({
       id: row.id,
-      returnRequestId: row.requested_at,
+      returnRequestId: row.return_request_id,
       orderId: row.order_id,
       productId: row.product_id,
-      amount: row.amount,
-      status: row.status,
+      amount: Number(row.amount),
+      status: row.status as RefundStatus,
       requestedAt: row.requested_at,
       completedAt: row.completed_at,
     }));

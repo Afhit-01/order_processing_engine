@@ -2,6 +2,7 @@ import { getReturnByIdFromDB } from "../store/returnStore.js";
 
 import {
   getRefundByIdFromDB,
+  getRefundsFromDB,
   insertRefund,
   updateRefundStatusInDb,
   completeRefundTransaction,
@@ -122,3 +123,17 @@ export const completeRefund = async (
     };
   }
 };
+
+export const getRefunds = async (user: JwtPayload): Promise<Refund[]> => {
+  const customerIdFilter = user.role === "customer" ? user.id : undefined;
+  return await getRefundsFromDB(customerIdFilter);
+};
+
+export const getRefundById = async (
+  id: string,
+  user: JwtPayload,
+): Promise<Refund | null> => {
+  const customerIdFilter = user.role === "customer" ? user.id : undefined;
+  return await getRefundByIdFromDB(id, customerIdFilter);
+};
+

@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { completeRefund } from "../services/refundService.js";
+import { completeRefund, getRefundById, getRefunds } from "../services/refundService.js";
 import { getRefundByIdFromDB } from "../store/refundStore.js";
 import { isValidParam } from "../validation/validation.js";
 import { requireAuth } from "../middleware/requireAuth.js";
@@ -7,6 +7,31 @@ import { checkIdempotency } from "../middleware/idempotency.js";
 
 const router = Router();
 router.use(requireAuth);
+
+router.get("/", async (req: Request, res: Response) => {
+  const refunds = await getRefunds(req.user!);
+  return res.status(200).json(refunds);
+});
+
+router.get("/:refundId", async (req: Request, res: Response) => {
+  const { refundId } = req.params;
+
+  if (!isValidParam(refundId)) {
+    return res.status(400).json({
+      error: "refundId must be provided",
+    });
+  }
+
+  const refund = await getRefundById(refundId, req.user!);
+
+  if (!refund) {
+    return res.status(404).json({
+      error: "Refund not found",
+    });
+  }
+
+  return res.status(200).json(refund);
+});
 
 router.patch(
   "/:refundId/complete",
