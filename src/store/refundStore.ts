@@ -233,3 +233,44 @@ export const completeRefundTransaction = async (
     client.release();
   }
 };
+
+export const getRefundsFromDB = async (
+  customerId?: string,
+): Promise<Refund[]> => {
+  const client = await pool.connect();
+
+  try {
+    let query = `
+    SELECT refunds.id, refunds.return_request_id,
+    refunds.order_id, refunds.product_id,
+    refunds.amount, refunds.status,
+    refunds.requested_at, refunds.created_at
+    FROM refunds
+    JOIN orders
+    ON refund.order_id = orders.id`;
+
+    const queryParams: string[] = [];
+
+    if (customerId) {
+      query += `WHERE orders.customer_id = $1`;
+      queryParams.push(customerId);
+    }
+
+    query += ";";
+
+    const result = await client.query(query, queryParams);
+
+    return result.rows.map((row) => ({
+      id: row.id,
+      returnRequestId: row.requested_at,
+      orderId: row.order_id,
+      productId: row.product_id,
+      amount: row.amount,
+      status: row.status,
+      requestedAt: row.requested_at,
+      completedAt: row.completed_at,
+    }));
+  } finally {
+    client.release();
+  }
+};
