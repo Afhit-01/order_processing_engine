@@ -89,7 +89,7 @@ export const loginCustomer = async (
   if (!customer) {
     return {
       success: false,
-      reason: "Customer doesn't exist",
+      reason: "Invalid credentials",
     };
   }
 
