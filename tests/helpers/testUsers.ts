@@ -28,6 +28,12 @@ export const createStaffUser = async (
     .post("/auth/staff/login")
     .send({ email, password: TEST_PASSWORD });
 
+  if (loginResponse.status !== 200) {
+    throw new Error(
+      `createStaffUser: login failed with status ${loginResponse.status}: ${JSON.stringify(loginResponse.body)}`,
+    );
+  }
+
   const token: string = loginResponse.body.token;
   const decoded = jwt.decode(token) as JwtPayload;
 
@@ -48,6 +54,12 @@ export const createCustomerUser = async (): Promise<{
   const loginResponse = await request(app)
     .post("/auth/customer/login")
     .send({ email, password: TEST_PASSWORD });
+
+  if (loginResponse.status !== 200) {
+    throw new Error(
+      `createStaffUser: login failed with status ${loginResponse.status}: ${JSON.stringify(loginResponse.body)}`,
+    );
+  }
 
   const token: string = loginResponse.body.token;
   const decoded = jwt.decode(token) as JwtPayload;
