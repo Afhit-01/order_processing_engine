@@ -4,7 +4,7 @@ import {
   getReturnByIdFromDB,
   insertReturnRequest,
   updateReturnRequestInDB,
-  getReturnsFromDb
+  getReturnsFromDb,
 } from "../store/returnStore.js";
 
 import {
@@ -23,7 +23,9 @@ export const validReturnTransitions: Record<ReturnStatus, ReturnStatus[]> = {
   refunded: [],
 };
 
-export const getReturns = async (user: JwtPayload): Promise<ReturnRequest[]> => {
+export const getReturns = async (
+  user: JwtPayload,
+): Promise<ReturnRequest[]> => {
   const customerIdFilter = user.role === "customer" ? user.id : undefined;
   return await getReturnsFromDb(customerIdFilter);
 };

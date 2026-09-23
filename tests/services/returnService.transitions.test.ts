@@ -38,8 +38,15 @@ describe("Return status transition table", () => {
 
   it("only defines the six known return statuses", () => {
     const expectedStatuses: ReturnStatus[] = [
-      "pending", "approved", "rejected", "in_transit", "received", "refunded",
+      "pending",
+      "approved",
+      "rejected",
+      "in_transit",
+      "received",
+      "refunded",
     ];
-    expect(Object.keys(validReturnTransitions).sort()).toEqual([...expectedStatuses].sort());
+    expect(Object.keys(validReturnTransitions).sort()).toEqual(
+      [...expectedStatuses].sort(),
+    );
   });
 });

@@ -15,7 +15,6 @@ export const checkIdempotency = async (
   }
 
   try {
-
     const insertQuery = `
       INSERT INTO idempotency_keys (idempotency_key, user_id, request_path, request_method)
       VALUES ($1, $2, $3, $4)
@@ -85,4 +84,3 @@ export const checkIdempotency = async (
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-

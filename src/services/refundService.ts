@@ -136,4 +136,3 @@ export const getRefundById = async (
   const customerIdFilter = user.role === "customer" ? user.id : undefined;
   return await getRefundByIdFromDB(id, customerIdFilter);
 };
-

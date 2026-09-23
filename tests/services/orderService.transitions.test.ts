@@ -47,9 +47,16 @@ describe("Order status transition table", () => {
 
   it("only defines the seven known order statuses", () => {
     const expectedStatuses: OrderStatus[] = [
-      "pending", "confirmed", "shipped", "delivered",
-      "cancelled", "return_requested", "returned",
+      "pending",
+      "confirmed",
+      "shipped",
+      "delivered",
+      "cancelled",
+      "return_requested",
+      "returned",
     ];
-    expect(Object.keys(validTransitions).sort()).toEqual([...expectedStatuses].sort());
+    expect(Object.keys(validTransitions).sort()).toEqual(
+      [...expectedStatuses].sort(),
+    );
   });
 });

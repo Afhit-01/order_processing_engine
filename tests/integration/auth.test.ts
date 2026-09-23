@@ -92,7 +92,9 @@ describe("Auth boundary", () => {
     const wrongPasswordResponse = await request(app)
       .post("/auth/staff/login")
       .send({ email, password: "the-wrong-password" });
-    expect(unregisteredResponse.body.error).toBe(wrongPasswordResponse.body.error);
+    expect(unregisteredResponse.body.error).toBe(
+      wrongPasswordResponse.body.error,
+    );
   });
 
   it("does not reveal whether a customer email exists on a failed login", async () => {
@@ -103,6 +105,8 @@ describe("Auth boundary", () => {
     const wrongPasswordResponse = await request(app)
       .post("/auth/customer/login")
       .send({ email, password: "the-wrong-password" });
-    expect(unregisteredResponse.body.error).toBe(wrongPasswordResponse.body.error);
+    expect(unregisteredResponse.body.error).toBe(
+      wrongPasswordResponse.body.error,
+    );
   });
 });
