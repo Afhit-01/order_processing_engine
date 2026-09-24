@@ -8,6 +8,14 @@ The Order Processing Engine is a REST API built with Node.js, TypeScript, Expres
 
 The project started as an in-memory order management system and has been extended to use PostgreSQL for persistent data storage. It also includes authentication, role-based access control, data isolation, order state transitions, return processing, and refunds.
 
+The current application mounts the main API entrypoints at:
+
+- `GET /` for a simple health/welcome response
+- `/auth` for customer/staff auth flows
+- `/orders` for order lifecycle operations
+- `/return` for return request and processing actions
+- `/refunds` for refund completion flows
+
 ## Tech Stack
 
 - Node.js
@@ -676,6 +684,10 @@ A simplified project structure:
 
 ```text
 src/
+├── app.ts
+├── server.ts
+├── types.ts
+├── returnLogic.ts
 ├── db/
 │   ├── client.ts
 │   ├── migrate.ts
@@ -685,40 +697,31 @@ src/
 │       ├── 002_add_auth_up.sql / _down.sql
 │       ├── 003_add_idempotency_up.sql / _down.sql
 │       └── 004_fix_idempotency_constraint_up.sql / _down.sql
-│
 ├── middleware/
 │   ├── requireAuth.ts
 │   ├── idempotency.ts
 │   ├── rateLimiter.ts
 │   └── validateBody.ts
-│
 ├── routes/
 │   ├── authRouter.ts
 │   ├── ordersRouter.ts
 │   ├── returnsRouter.ts
 │   └── refundsRouter.ts
-│
 ├── services/
 │   ├── authService.ts
 │   ├── orderService.ts
 │   ├── returnService.ts
 │   └── refundService.ts
-│
 ├── store/
 │   ├── authStore.ts
 │   ├── orderStore.ts
 │   ├── returnStore.ts
 │   └── refundStore.ts
-│
 ├── validation/
 │   └── validation.ts
-│
-├── server.ts
-├── types.ts
-└── returnLogic.ts
-
-eslint.config.js
 ```
+
+Additional config files at the project root include `eslint.config.js`.
 
 ## Design Principles Demonstrated
 

@@ -15,13 +15,12 @@ const isOrderItem = (value: unknown): value is OrderItem => {
 
 export const isCreateOrderPayload = (
   body: unknown,
-): body is { customerName: string; items: OrderItem[] } => {
+): body is { items: OrderItem[] } => {
   if (typeof body !== "object" || body === null) return false;
 
   const payload = body as Record<string, unknown>;
 
   return (
-    typeof payload.customerName === "string" &&
     Array.isArray(payload.items) &&
     payload.items.every((item) => isOrderItem(item))
   );

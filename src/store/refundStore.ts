@@ -81,7 +81,7 @@ export const getRefundByIdFromDB = async (
     const queryParams: string[] = [refundID];
 
     if (customerId) {
-      query += `AND orders.customer_id = $2`;
+      query += ` AND orders.customer_id = $2`;
       queryParams.push(customerId);
     }
 
