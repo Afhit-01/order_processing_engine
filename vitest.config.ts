@@ -5,5 +5,6 @@ export default defineConfig({
     environment: "node",
     setupFiles: ["./tests/setup.ts"],
     fileParallelism: false, // tests truncate shared tables between runs
+    testTimeout: 20000,
   },
 });

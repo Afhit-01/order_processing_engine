@@ -36,6 +36,8 @@ describe("Idempotency", () => {
       .set("Idempotency-Key", "same-key-twice")
       .send({ items: sampleItems });
 
+    console.log(first.status, first.body);
+
     const second = await request(app)
       .post("/orders")
       .set("Authorization", `Bearer ${customer.token}`)
