@@ -13,7 +13,7 @@ afterAll(async () => {
   await pool.end();
 });
 
-const productId = "God-when-1";
+const productId = "sku-1";
 
 const createDeliveredOrder = async (
   customerToken: string,

@@ -48,69 +48,6 @@ router.get("/:returnId", async (req: Request, res: Response) => {
 });
 
 router.patch(
-  "/:orderId/:productId/:quantity",
-  async (req: Request, res: Response) => {
-    try {
-      const { orderId, productId, quantity } = req.params;
-
-      if (!isValidParam(orderId)) {
-        return res.status(400).json({
-          error: "orderId must be provided",
-        });
-      }
-
-      if (!isValidParam(productId)) {
-        return res.status(400).json({
-          error: "productId must be provided",
-        });
-      }
-
-      if (!isNumericString(quantity)) {
-        return res.status(400).json({
-          error: "quantity must be numeric",
-        });
-      }
-
-      const { reason } = req.body;
-
-      if (!reason) {
-        return res.status(400).json({
-          error: "Kindly provide a reason for return",
-        });
-      }
-
-      if (Array.isArray(reason)) {
-        return res.status(400).json({
-          error: "reason must be a string",
-        });
-      }
-
-      const result = await returnOrder(
-        req.user!,
-        orderId,
-        productId,
-        Number(quantity),
-        reason,
-      );
-
-      if (!result.success) {
-        return res.status(400).json({
-          error: result.reason,
-        });
-      }
-
-      return res.status(200).json({
-        message: result.message,
-      });
-    } catch {
-      return res.status(500).json({
-        error: "Internal server error",
-      });
-    }
-  },
-);
-
-router.patch(
   "/:orderId/:productId/review",
   async (req: Request, res: Response) => {
     try {
@@ -301,6 +238,74 @@ router.patch(
       return res.status(200).json({
         message: "Return received successfully",
         returnRequest: updatedItem,
+      });
+    } catch {
+      return res.status(500).json({
+        error: "Internal server error",
+      });
+    }
+  },
+);
+
+// This wildcard route must stay below /review, /ship, and /receive above.
+// :quantity is just a placeholder at the routing layer, Express does not
+// know it should only match digits, so it will happily swallow a request
+// for /review or /ship if it is registered first, and the numeric check
+// inside this handler runs too late to save it.
+router.patch(
+  "/:orderId/:productId/:quantity",
+  async (req: Request, res: Response) => {
+    try {
+      const { orderId, productId, quantity } = req.params;
+
+      if (!isValidParam(orderId)) {
+        return res.status(400).json({
+          error: "orderId must be provided",
+        });
+      }
+
+      if (!isValidParam(productId)) {
+        return res.status(400).json({
+          error: "productId must be provided",
+        });
+      }
+
+      if (!isNumericString(quantity)) {
+        return res.status(400).json({
+          error: "quantity must be numeric",
+        });
+      }
+
+      const { reason } = req.body;
+
+      if (!reason) {
+        return res.status(400).json({
+          error: "Kindly provide a reason for return",
+        });
+      }
+
+      if (Array.isArray(reason)) {
+        return res.status(400).json({
+          error: "reason must be a string",
+        });
+      }
+
+      const result = await returnOrder(
+        req.user!,
+        orderId,
+        productId,
+        Number(quantity),
+        reason,
+      );
+
+      if (!result.success) {
+        return res.status(400).json({
+          error: result.reason,
+        });
+      }
+
+      return res.status(200).json({
+        message: result.message,
       });
     } catch {
       return res.status(500).json({

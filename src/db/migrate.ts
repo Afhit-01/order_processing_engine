@@ -14,9 +14,11 @@ const runMigration = async () => {
     "002_add_auth_up.sql",
     "003_add_idempotency_up.sql",
     "004_fix_idempotency_constraint_up.sql",
+    "005_allow_refund_retry_after_failure_up.sql",
   ];
 
   const downMigrations = [
+    "005_allow_refund_retry_after_failure_down.sql",
     "004_fix_idempotency_constraint_down.sql",
     "003_add_idempotency_down.sql",
     "002_add_auth_down.sql",
