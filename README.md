@@ -1,36 +1,119 @@
 # Order Processing Engine
 
-A backend API for managing orders and the return/refund lifecycle.
+A backend API for managing orders and everything that happens after an order is placed, including returns and refunds.
 
 ## Overview
 
 The Order Processing Engine is a REST API built with Node.js, TypeScript, Express, and PostgreSQL.
 
-The project started as an in-memory order management system and has been extended to use PostgreSQL for persistent data storage. It also includes authentication, role-based access control, data isolation, order state transitions, return processing, and refunds.
+The project started out much simpler, but it has grown into a backend system with persistent database storage, authentication, role-based access control, customer data isolation, order and return state machines, refunds, idempotency, rate limiting, database transactions, and automated tests.
 
-The current application mounts the main API entrypoints at:
-
-- `GET /` for a simple health/welcome response
-- `/auth` for customer/staff auth flows
-- `/orders` for order lifecycle operations
-- `/return` for return request and processing actions
-- `/refunds` for refund completion flows
+The main idea is simple: an order should not just be created and forgotten. Its entire lifecycle should be handled with clear rules about what can happen, who can do it, and when it can happen.
 
 ## Tech Stack
 
-- Node.js
-- TypeScript
-- Express
-- PostgreSQL
-- JSON Web Tokens (JWT)
-- bcrypt
-- helmet
-- express-rate-limit
-- REST API
+* Node.js
+* TypeScript
+* Express
+* PostgreSQL
+* JWT
+* bcrypt
+* Helmet
+* express-rate-limit
+* Vitest
+
+## Getting Started
+
+### Requirements
+
+You need:
+
+* Node.js
+* npm
+* PostgreSQL
+
+### 1. Install dependencies
+
+```sh
+npm ci
+```
+
+### 2. Configure the environment
+
+Create a `.env` file:
+
+```dotenv
+DATABASE_URL=postgres://<username>:<password>@<host>:<port>/<database_name>
+JWT_SECRET=<long-random-secret>
+PORT=3000
+```
+
+The rate limits can also be configured if needed:
+
+```dotenv
+AUTH_RATE_LIMIT_MAX=10
+API_RATE_LIMIT_MAX=80
+```
+
+Both limits use a 15-minute window.
+
+### 3. Run the database migrations
+
+```sh
+npm run migrate:up
+```
+
+If you want to create an admin account, set:
+
+```dotenv
+SEED_ADMIN_EMAIL=admin@example.com
+SEED_ADMIN_PASSWORD=<password>
+```
+
+and run:
+
+```sh
+npm run seed
+```
+
+The seed script does not overwrite an existing staff account with the same email.
+
+### 4. Start the server
+
+```sh
+npm run dev
+```
+
+The API will be available at:
+
+```text
+http://localhost:3000
+```
+
+The migration command applies all migrations in order.
+
+There is also a `migrate:down` command that reverses all migrations and drops the schema. Use it only when you actually want to reset the database.
+
+## Useful Commands
+
+| Command                     | Purpose                               |
+| --------------------------- | ------------------------------------- |
+| `npm run dev`               | Start the development server          |
+| `npm run build`             | Compile TypeScript                    |
+| `npm run lint`              | Run ESLint                            |
+| `npm test`                  | Run the Vitest test suite             |
+| `npm run migrate:up`        | Apply application migrations          |
+| `npm run migrate:down`      | Reverse application migrations        |
+| `npm run migrate:test:up`   | Apply migrations to the test database |
+| `npm run migrate:test:down` | Reverse test database migrations      |
+
+Tests use `.env.test`. The test configuration checks that `DATABASE_URL` appears to point to a test database before running.
+
+The tests also truncate shared database tables, so `.env.test` should never point to a database containing data you want to keep.
 
 ## Architecture
 
-The application follows a layered architecture:
+The application follows a simple layered structure:
 
 ```text
 Route
@@ -44,50 +127,29 @@ PostgreSQL
 
 ### Routes
 
-Routes handle HTTP requests and responses.
+Routes deal with HTTP.
 
-They are responsible for:
-
-- Reading route parameters and request bodies
-- Basic request validation
-- Authentication middleware
-- Returning appropriate HTTP responses
+They receive requests, validate basic input, run middleware, call the appropriate service, and send the response.
 
 ### Services
 
-Services contain the application's business logic.
+Services contain the actual business logic.
 
-They handle:
-
-- Business rules
-- State transitions
-- Authorization checks
-- Data-isolation decisions
-- Coordinating multiple store operations
+This is where things like authorization, state transitions, return rules, refund rules, and data-isolation decisions are handled.
 
 ### Stores
 
-Stores are responsible for communicating with PostgreSQL.
+Stores are responsible for talking to PostgreSQL.
 
-They handle:
+They contain the SQL queries and handle reading and writing database records.
 
-- SQL queries
-- Inserts
-- Updates
-- Reads
-- Mapping database rows into application objects
+This keeps the responsibilities fairly clear. Routes handle HTTP, services handle business rules, and stores handle the database.
 
 ## Authentication and Authorization
 
 The API uses JWT-based authentication.
 
-Authenticated requests contain a decoded JWT payload available through:
-
-```ts
-req.user;
-```
-
-The payload contains information such as:
+After a successful login, the server returns a signed JWT containing information about the authenticated user:
 
 ```ts
 {
@@ -96,96 +158,56 @@ The payload contains information such as:
 }
 ```
 
-### RBAC
+Authenticated requests send the token as:
 
-The application uses role-based access control (RBAC) to restrict operations according to the authenticated user's role.
+```http
+Authorization: Bearer <token>
+```
 
-Examples:
+Tokens expire after one hour.
 
-- Customers can create orders.
-- Customers can request returns.
-- Staff and admins can review return requests.
-- Staff and admins can move returns through operational stages such as `in_transit` and `received`.
+There is no public staff registration endpoint. Admin accounts are created through the seed script.
 
-Authentication is applied through the `requireAuth` middleware.
+Login failures also return the same generic `Invalid credentials` message whether the email or password is incorrect.
+
+### Roles
+
+The application currently has three roles:
+
+* `customer`
+* `staff`
+* `admin`
+
+The roles determine which operations a user is allowed to perform.
+
+For example:
+
+* Customers can create orders.
+* Customers can request returns for their own orders.
+* Staff and admins can review return requests.
+* Staff and admins can move returns through operational stages.
+* Staff and admins can process refunds.
+
+Authentication is handled by the `requireAuth` middleware, while role-specific permissions are enforced where the operation requires them.
 
 ## Data Isolation
 
-Authentication answers:
+Authentication tells the application who is making a request.
 
-> Who is making this request?
+Data isolation determines which records that user is actually allowed to access.
 
-Data isolation answers:
+For customer-facing operations, the authenticated user's ID is used when querying their data. This means a customer cannot simply change an order ID in a URL and access another customer's order.
 
-> Which records is this authenticated user allowed to access?
-
-For customer-facing operations, the authenticated user's ID is used to restrict database queries to records belonging to that customer.
-
-For example, when retrieving an order:
-
-```text
-GET /orders/:orderId
-```
-
-the service passes the authenticated user into the order lookup.
-
-The database query can then restrict the result using:
+For example, an order lookup can apply both conditions:
 
 ```sql
 WHERE orders.id = $1
 AND orders.customer_id = $2
 ```
 
-This prevents one customer from retrieving another customer's order simply by changing the ID in the URL.
+Staff and admins can access records across customers when the operation allows it.
 
-For staff and admin operations, the application can intentionally omit the customer filter when the role is authorized to access records across customers.
-
-## Auth Endpoints
-
-### Register a customer
-
-```http
-POST /auth/customer/register
-```
-
-```json
-{
-  "email": "ada@example.com",
-  "password": "a-strong-password"
-}
-```
-
-### Customer login
-
-```http
-POST /auth/customer/login
-```
-
-```json
-{
-  "email": "ada@example.com",
-  "password": "a-strong-password"
-}
-```
-
-### Staff login
-
-```http
-POST /auth/staff/login
-```
-
-```json
-{
-  "email": "staff@example.com",
-  "password": "a-strong-password"
-}
-```
-
-There is no public staff registration endpoint. Staff accounts are created through the seed script (`npm run seed`), which reads `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` from the environment.
-
-Both login routes return a signed JWT on success, to be sent as `Authorization: Bearer <token>` on subsequent requests. Login failures return a generic `Invalid credentials` message regardless of whether the email or the password was wrong, so a failed request never reveals whether a given email is registered.
-
-## Order Status
+## Order Lifecycle
 
 Orders use the following statuses:
 
@@ -199,7 +221,7 @@ return_requested
 returned
 ```
 
-### Order State Machine
+The main state flow is:
 
 ```text
 pending
@@ -213,16 +235,13 @@ pending
  └── cancelled
 ```
 
-Terminal states:
+`cancelled` and `returned` are terminal states.
 
-- `cancelled`
-- `returned`
+The service layer validates transitions, so an order cannot jump from one state to another just because a request was made to the endpoint.
 
-Status transitions are validated in the service layer.
+## Return Lifecycle
 
-## Return Status
-
-Returns use the following statuses:
+Returns use:
 
 ```text
 pending
@@ -233,7 +252,7 @@ received
 refunded
 ```
 
-### Return State Machine
+The flow is:
 
 ```text
 pending
@@ -244,265 +263,21 @@ pending
  └── rejected
 ```
 
-Terminal states:
+A rejected return moves the associated order back to `delivered`.
 
-- `rejected`
-- `refunded`
-
-Invalid state transitions are rejected by the service layer.
-
-## Order Creation
-
-### `POST /orders`
-
-Creates a new order.
-
-Customers are the only role allowed to create orders through this path.
-
-The service validates:
-
-- The cart is not empty.
-- Item quantities are greater than zero.
-- Item prices are greater than zero.
-- The authenticated user has the `customer` role.
-
-The order and its items are inserted inside a PostgreSQL transaction:
+A successful refund eventually moves both the return and the order forward:
 
 ```text
-BEGIN
-  Insert order
-  Insert order items
-COMMIT
+Refund completed
+      ↓
+Return → refunded
+      ↓
+Order → returned
 ```
 
-If an error occurs:
+## Refunds
 
-```text
-ROLLBACK
-```
-
-This prevents an order from being created without its associated items.
-
-## Order Endpoints
-
-### Create an order
-
-```http
-POST /orders
-```
-
-Example body:
-
-```json
-{
-  "items": [
-    {
-      "productId": "product-1",
-      "name": "Keyboard",
-      "quantity": 2,
-      "unitPrice": 15000
-    }
-  ]
-}
-```
-
-The `customerId` is taken from the authenticated JWT, not from the request body.
-
-### Get orders by status
-
-```http
-GET /orders?status=pending
-```
-
-Customers receive only their own orders.
-
-Authorized staff/admin users can access orders across customers.
-
-### Get an order
-
-```http
-GET /orders/:orderId
-```
-
-The order lookup applies data isolation for customers.
-
-### Get order total
-
-```http
-GET /orders/:orderId/total
-```
-
-Returns the total calculated from the order items.
-
-### Update order status
-
-```http
-PATCH /orders/:orderId/status
-```
-
-Example body:
-
-```json
-{
-  "status": "confirmed"
-}
-```
-
-Only valid state transitions are accepted.
-
-### Cancel an order
-
-```http
-DELETE /orders/:orderId
-```
-
-Orders can only be cancelled while they are in:
-
-- `pending`
-- `confirmed`
-
-### Order report
-
-```http
-GET /orders/report
-```
-
-Returns aggregate information including:
-
-- Total orders
-- Orders grouped by status
-- Revenue
-
-## Return Endpoints
-
-### Request a return
-
-```http
-PATCH /return/:orderId/:productId/:quantity
-```
-
-Example body:
-
-```json
-{
-  "reason": "Product arrived damaged"
-}
-```
-
-Only customers can request returns.
-
-The service verifies:
-
-- The customer owns the order.
-- The order exists.
-- The order has been delivered.
-- The product exists in the order.
-- The requested quantity is greater than zero.
-- The requested quantity does not exceed the ordered quantity.
-- The return window has not expired.
-
-The return request starts in:
-
-```text
-pending
-```
-
-The associated order moves from:
-
-```text
-delivered → return_requested
-```
-
-### Review a return
-
-```http
-PATCH /return/:orderId/:productId/review
-```
-
-Example body:
-
-```json
-{
-  "review": "approved"
-}
-```
-
-or:
-
-```json
-{
-  "review": "rejected"
-}
-```
-
-This is a staff/admin operation.
-
-Valid transitions are:
-
-```text
-pending → approved
-pending → rejected
-```
-
-If the request is rejected, the associated order moves back to:
-
-```text
-return_requested → delivered
-```
-
-### Mark return as in transit
-
-```http
-PATCH /return/:orderId/:productId/ship
-```
-
-This is a staff/admin operation.
-
-Valid transition:
-
-```text
-approved → in_transit
-```
-
-### Receive a return
-
-```http
-PATCH /return/:orderId/:productId/receive
-```
-
-This is a staff/admin operation.
-
-Valid transition:
-
-```text
-in_transit → received
-```
-
-### Create a refund request
-
-```http
-POST /return/:orderId/:productId/refund
-```
-
-Example body:
-
-```json
-{
-  "refundAmount": 30000
-}
-```
-
-The refund process is only allowed after the return has reached:
-
-```text
-received
-```
-
-A refund initially has a `pending` status.
-
-## Refund Lifecycle
-
-Refunds use:
+Refunds have three possible statuses:
 
 ```text
 pending
@@ -510,118 +285,185 @@ completed
 failed
 ```
 
-The intended lifecycle is:
+A refund can only be created after the associated return has reached:
 
 ```text
-Return received
-      ↓
-Refund created
-      ↓
-pending
-   ↙     ↘
-completed  failed
+received
 ```
 
-When a refund is successfully completed, the associated return is moved to:
+Only staff and admins can create or complete refunds.
+
+A failed refund does not destroy the state of the return or order. The refund can be retried, which means a temporary refund failure does not leave the order stuck in an inconsistent state.
+
+## API Endpoints
+
+### Authentication
+
+```http
+POST /auth/customer/register
+POST /auth/customer/login
+POST /auth/staff/login
+```
+
+### Orders
+
+```http
+POST   /orders
+GET    /orders
+GET    /orders/:orderId
+GET    /orders/:orderId/total
+PATCH  /orders/:orderId/status
+DELETE /orders/:orderId
+GET    /orders/report
+```
+
+Customers can only access their own orders.
+
+Authorized staff and admins can access orders across customers.
+
+### Returns
+
+```http
+GET   /return
+GET   /return/:returnId
+
+PATCH /return/:orderId/:productId/:quantity
+PATCH /return/:orderId/:productId/review
+PATCH /return/:orderId/:productId/ship
+PATCH /return/:orderId/:productId/receive
+
+POST  /return/:orderId/:productId/refund
+```
+
+The mounted route prefix is singular: `/return`.
+
+A return request includes a reason:
+
+```json
+{
+  "reason": "Product arrived damaged"
+}
+```
+
+The application checks things like ownership, order status, product existence, quantity, and the 30-day return window before creating the request.
+
+### Refunds
+
+```http
+GET   /refunds
+GET   /refunds/:refundId
+PATCH /refunds/:refundId/complete
+```
+
+Completing a refund accepts:
+
+```json
+{
+  "outcome": "completed"
+}
+```
+
+or:
+
+```json
+{
+  "outcome": "failed"
+}
+```
+
+A successful completion changes:
 
 ```text
-refunded
+Refund   → completed
+Return   → refunded
+Order    → returned
 ```
 
-and the associated order is moved to:
-
-```text
-returned
-```
+A failed refund remains retryable.
 
 ## Idempotency
 
-Requests that create or mutate state can be retried safely by sending an `Idempotency-Key` header. This matters for network retries and accidental double-submits, where the same logical request might otherwise be executed twice.
+Some operations can safely be retried using an `Idempotency-Key` header.
 
-Idempotency is enforced on:
+This is useful when a client does not know whether a request succeeded, for example because the network connection dropped after the server processed it. Without idempotency, retrying the request could create a duplicate order or perform the same operation twice.
+
+Idempotency currently applies to:
 
 ```text
-POST   /orders
-POST   /return/:orderId/:productId/refund
-PATCH  /refunds/:refundId/complete
+POST  /orders
+POST  /return/:orderId/:productId/refund
+PATCH /refunds/:refundId/complete
 ```
 
-### How it works
+Keys are scoped per user, so two different users can use the same key without interfering with each other.
 
-The key is claimed atomically, per user, before the request is handled:
+If the same key is already being processed, the new request receives `409 Conflict`.
 
-```sql
-INSERT INTO idempotency_keys (idempotency_key, user_id, request_path, request_method)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT (user_id, idempotency_key) DO NOTHING
-RETURNING id;
-```
+If the original request has already completed, its stored response is returned instead of running the operation again.
 
-Because the insert and the conflict check happen as a single atomic database operation, two requests carrying the same key that arrive at nearly the same moment cannot both proceed, one of them will always lose the `INSERT` and fall through to the lookup below instead.
-
-If the insert claims the row, the request proceeds normally, and the response is recorded against that row once the handler finishes.
-
-If the insert does not claim the row, either this key was already used, or another request with the same key is being processed right now, the existing row is checked:
-
-- `in_progress` &rarr; the request is rejected with `409 Conflict`, since a matching request is already being handled.
-- `completed` &rarr; the original response is returned unchanged, with its original status code, rather than re-running the operation.
-
-The uniqueness constraint on `(user_id, idempotency_key)` is scoped per user rather than global. Two different users are free to use the same key value without colliding with each other.
+The key is claimed atomically in PostgreSQL, which also handles the case where two identical requests arrive at almost the same time.
 
 ## Rate Limiting
 
-Two limiters are applied, both in-memory for now:
+The API uses two in-memory rate limiters:
 
 ```text
-authLimiter   10 requests  / 15 minutes  →  /auth
-apiLimiter    80 requests  / 15 minutes  →  /orders, /return, /refunds
+/auth                  10 requests / 15 minutes
+/orders, /return,
+/refunds               80 requests / 15 minutes
 ```
 
-`/auth` is limited more tightly than the rest of the API, since it is the route most worth protecting against brute-force credential guessing.
+The limits can be changed with:
+
+```dotenv
+AUTH_RATE_LIMIT_MAX=10
+API_RATE_LIMIT_MAX=80
+```
+
+The authentication routes have a lower limit because they are the most obvious place to protect against repeated credential attempts.
 
 ## Validation
 
-The application performs validation at multiple levels.
+Validation happens at different levels.
 
-### Request validation
+Routes handle things like:
 
-Routes validate incoming parameters and request bodies before passing them to services.
+* Required parameters
+* Request body shape
+* Valid status values
+* Valid return decisions
+* Numeric quantities
+* Required fields
 
-Examples include:
+Services handle the rules that depend on the application's business logic.
 
-- Required route parameters
-- Numeric quantities
-- Valid status values
-- Valid return decisions
-- Required return reasons
-- Refund amount type
+For example:
 
-### Business validation
-
-Services enforce domain rules such as:
-
-- Only customers can create orders.
-- Only customers can request returns.
-- Only staff/admin can review and process returns.
-- Orders must follow the defined state machine.
-- Returns must follow the defined state machine.
-- Return quantities cannot exceed ordered quantities.
+* Only customers can create orders.
+* Only customers can request returns.
+* Only staff/admin can process returns.
+* Orders must follow the defined state machine.
+* Returns must follow the defined state machine.
+* Return quantities cannot exceed the quantity ordered.
+* Refunds cannot be created before a return is received.
 
 ## Database
 
-PostgreSQL stores the application's persistent data.
+PostgreSQL is used as the persistent data store.
 
-Main entities include:
+The main entities are:
 
 ```text
 customers
+staff
 orders
 order_items
 return_requests
 refunds
+idempotency_keys
 ```
 
-Relationships include:
+The relationships roughly look like this:
 
 ```text
 Customer
@@ -635,119 +477,127 @@ Customer
                     └── Refunds
 ```
 
-## PostgreSQL Queries
+The application uses parameterized SQL rather than directly interpolating user input into queries.
 
-Parameterized queries are used instead of interpolating user input directly into SQL.
+Related operations that need to succeed together are also wrapped in database transactions.
 
-Example:
+For example, creating an order involves creating the order itself and its order items. If something fails halfway through, the transaction rolls everything back instead of leaving half an order in the database.
 
-```sql
-SELECT *
-FROM orders
-WHERE id = $1;
+## Testing
+
+The project uses Vitest for automated tests.
+
+The test suite covers:
+
+* Authentication boundaries
+* Role-based access control
+* Customer data isolation
+* Idempotency
+* Concurrent duplicate requests
+* Order state transitions
+* Return state transitions
+* Return rejection cascades
+* Refund completion cascades
+* Failed refund retry behavior
+* Database migration behavior
+
+The suite can be run with:
+
+```sh
+npm test
 ```
-
-with the value supplied separately:
-
-```ts
-await client.query(query, [id]);
-```
-
-This keeps user-provided values separate from SQL syntax.
-
-## Transactions
-
-Order creation uses a database transaction because multiple related records must be created together.
-
-Example:
-
-```text
-BEGIN
-  INSERT INTO orders
-  INSERT INTO order_items
-  INSERT INTO order_items
-  ...
-COMMIT
-```
-
-If one operation fails:
-
-```text
-ROLLBACK
-```
-
-This preserves database consistency.
 
 ## Project Structure
 
-A simplified project structure:
+A simplified version of the project looks like this:
 
 ```text
 src/
-├── app.ts
-├── server.ts
-├── types.ts
-├── returnLogic.ts
 ├── db/
 │   ├── client.ts
 │   ├── migrate.ts
 │   ├── seed.ts
 │   └── migrations/
-│       ├── 001_initial_scheme_up.sql / _down.sql
-│       ├── 002_add_auth_up.sql / _down.sql
-│       ├── 003_add_idempotency_up.sql / _down.sql
-│       └── 004_fix_idempotency_constraint_up.sql / _down.sql
+│       ├── 001_initial_scheme_up.sql
+│       ├── 001_initial_scheme_down.sql
+│       ├── 002_add_auth_up.sql
+│       ├── 002_add_auth_down.sql
+│       ├── 003_add_idempotency_up.sql
+│       ├── 003_add_idempotency_down.sql
+│       ├── 004_fix_idempotency_constraint_up.sql
+│       ├── 004_fix_idempotency_constraint_down.sql
+│       ├── 005_allow_refund_retry_after_failure_up.sql
+│       └── 005_allow_refund_retry_after_failure_down.sql
+│
 ├── middleware/
 │   ├── requireAuth.ts
 │   ├── idempotency.ts
 │   ├── rateLimiter.ts
 │   └── validateBody.ts
+│
 ├── routes/
 │   ├── authRouter.ts
 │   ├── ordersRouter.ts
 │   ├── returnsRouter.ts
 │   └── refundsRouter.ts
+│
 ├── services/
 │   ├── authService.ts
 │   ├── orderService.ts
 │   ├── returnService.ts
 │   └── refundService.ts
+│
 ├── store/
 │   ├── authStore.ts
 │   ├── orderStore.ts
 │   ├── returnStore.ts
 │   └── refundStore.ts
+│
 ├── validation/
 │   └── validation.ts
+│
+├── app.ts
+├── server.ts
+└── types.ts
+
+tests/
+├── integration/
+└── services/
 ```
 
-Additional config files at the project root include `eslint.config.js`.
+## What This Project Covers
 
-## Design Principles Demonstrated
+The project has been a way for me to put backend concepts into an actual system instead of learning each one in isolation.
 
-The project demonstrates several backend concepts:
+Some of the concepts currently implemented are:
 
-- REST API design
-- Layered architecture
-- Authentication
-- JWT
-- Role-based access control
-- Data isolation
-- Request validation
-- Business validation
-- State machines
-- PostgreSQL
-- Parameterized SQL
-- Database transactions
-- Relational data modeling
-- Idempotent request handling
-- Rate limiting
-- Error handling
-- Separation of concerns
+* REST API design
+* Layered architecture
+* TypeScript
+* Authentication
+* JWT
+* Role-based access control
+* Data isolation
+* Request and business validation
+* State machines
+* PostgreSQL
+* Relational data modeling
+* Parameterized SQL
+* Database transactions
+* Idempotency
+* Rate limiting
+* Error handling
+* Database migrations
+* Automated testing
+* Separation of concerns
 
 ## Current Scope
 
-The current implementation focuses on the backend API. Authentication, data isolation, order/return/refund lifecycles, and idempotent request handling are in place. Automated tests, invoice generation, and API documentation are planned next. A frontend is planned as a future addition.
+This is currently a backend-only project.
+
+The API has persistent PostgreSQL storage, authentication and authorization, order/return/refund workflows, idempotency, rate limiting, migrations, and automated service and integration tests.
+
+There is currently no frontend, invoice generation, or generated API specification.
 
 ## Author
 
